@@ -91,12 +91,12 @@ Each tile has a coloured light and a count per state. The feed under the tiles h
 
 | Light | Agent | My pull request | Meeting |
 | --- | --- | --- | --- |
-| orange, breathing | working | CI running | under way |
-| yellow, blinking | waiting for you | changes requested | time to join, from 2 minutes before to 5 minutes after the start |
-| green | finished | approved, CI green | |
-| red | failed | CI failed | |
-| grey | | awaiting review | later today |
-| blue | | your review is requested | within 10 minutes |
+| <img src="docs/images/lights/running.gif" width="18" height="18" alt="orange, breathing"> | working | CI running | under way |
+| <img src="docs/images/lights/waiting.gif" width="18" height="18" alt="yellow, blinking"> | waiting for you | changes requested | time to join, from 2 minutes before to 5 minutes after the start |
+| <img src="docs/images/lights/done.gif" width="18" height="18" alt="green"> | finished | approved, CI green | |
+| <img src="docs/images/lights/failed.gif" width="18" height="18" alt="red"> | failed | CI failed | |
+| <img src="docs/images/lights/idle.gif" width="18" height="18" alt="grey"> | | awaiting review | later today |
+| <img src="docs/images/lights/review.gif" width="18" height="18" alt="blue"> | | your review is requested | within 10 minutes |
 
 **ORCA.** Every 3 seconds the hub asks Orca for its chats and agent terminals, whatever provider runs them. A waiting chat turns the tile border yellow. The list puts pinned tabs on top and waiting chats first, with the provider and project under each name (`claude · Pixeldeck`). Scheduled runs stay hidden unless they wait for you. A long swipe left closes a finished chat right away. A chat with a working or waiting agent closes only with the button, because closing it stops the agent.
 
@@ -180,7 +180,7 @@ The app has no sandbox, because it runs `gh` and `claude`.
 | `mac/PixeldeckMac/Notch` | the notch panel, wings and news line |
 | `mac/PixeldeckMac/Board` | the board, drawn into small pixel buffers and scaled up without smoothing |
 | `mac/ClaudePlugin` | the Claude Code plugin with the hook and MCP config. The app copies it to `~/.pixeldeck/claude-plugin` on every launch |
-| `tools` | generators for the sprites, the font (X11 6×10, public domain) and the icon |
+| `tools` | generators for the sprites, the font (X11 6×10, public domain), the icon and the lights in this README |
 
 A new integration needs an entry in `Integration.catalog` in `Schema.swift`, a tile in `Board/Scene.swift` and a name in `SettingsView.swift`.
 
