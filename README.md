@@ -5,8 +5,8 @@
 <h1 align="center">Pixeldeck</h1>
 
 <p align="center">
-  A pixel status board in the notch of the Mac.<br>
-  It counts what Claude Code and other agents are doing, follows your pull requests and reminds you of meetings.
+  A pixel status board in the MacBook notch.<br>
+  It shows your Claude Code and Orca agents, pull requests and today's meetings. Scripts can post their own cards.
 </p>
 
 <p align="center">
@@ -20,19 +20,22 @@
   <img src="docs/images/hero.gif" width="800" alt="The open notch: tiles for Orca chats, GitHub pull requests and the next meeting, and two cards sent by scripts">
 </p>
 
-Scripts and agents send it things to show, and it opens when the pointer rests on the notch.
+Rest the pointer on the notch and it opens into the board. Click a tile for its list, click a row to jump to the chat, pull request or call.
 
     scripts, hooks ──HTTP──┐
                            ├─► hub ◄── stream + clicks ──► notch
     Claude, agents ───MCP──┘
 
-One app runs the hub and the notch. The hub is `mac/HubKit`; it listens on `127.0.0.1:7777`, so only this Mac reaches it. `mac/PixeldeckMac` is the app around it, and `mac/PixeldeckMac/Board` draws the board.
-
 <p align="center">
   <img src="docs/images/closed.gif" width="600" alt="The closed notch with the character on the left wing and counts of agents and a meeting on the right, then two lines of news under it">
 </p>
 
-Closed, the notch grows wings while something is going on. The character sits on the left, the agents at work and the next meeting on the right. When an agent finishes or a pull request gets approved, a line drops under the notch for three seconds.
+While something is going on, the closed notch grows wings. The left one holds the character. The right one counts agents that are running, waiting or failed, and shows the next meeting as `7m`, then `now`. A line of news drops under the notch for three seconds when:
+
+- a card arrives,
+- an agent finishes, fails or waits for you (`Pixeldeck finished`),
+- your pull request is approved, fails CI or gets changes requested (`#412 Fix the build approved`),
+- a meeting is five minutes away or starts (`Billing sync in 5m`).
 
 <table>
   <tr>
@@ -53,63 +56,61 @@ Closed, the notch grows wings while something is going on. The character sits on
   </tr>
 </table>
 
-## Running
+## Install
 
-    mac/install.sh                 # builds the app, puts it into /Applications and starts it
-    mac/package.sh                 # builds it for Apple silicon and Intel into mac/build/Pixeldeck.zip
+Pixeldeck needs macOS 15 or later.
 
-The app has no icon in the menu bar: its menu opens with a right click on the notch. It shows whether the hub runs, and has Settings and Quit. Settings switch the integrations on and off, let the notch read the calendar, connect Claude Code, start and stop the hub, open its log and set Launch at Login (`SettingsView.swift`). Quitting stops the hub and the notch; Claude keeps working.
+1. Download `Pixeldeck.zip` from [Releases](../../releases), unzip it and move `Pixeldeck.app` to Applications. The app is not notarized, so macOS blocks the first launch. Allow it in System Settings → Privacy & Security → Open Anyway.
+2. Right-click the notch, open Settings and click Connect next to the Pixeldeck plugin. This runs `claude`, so Claude Code has to be installed. Sessions started after that show up on the board. With a custom `CLAUDE_CONFIG_DIR`, run `claude plugin install pixeldeck --marketplace ~/.pixeldeck/claude-plugin` in Terminal with that variable set.
+3. For the GITHUB tile, run `gh auth login`.
+4. For MEETINGS, click Allow in Settings → Calendar. Pixeldeck reads the Calendar app, so a Google or Exchange account has to be added in System Settings → Internet Accounts.
 
-The app has no sandbox, because it runs `gh` and `claude`. An app started from Finder gets a short PATH, so once per launch it asks the login shell of the user for the PATH that Terminal has. It is signed with the Apple Development certificate. The hub listens only on loopback, so the macOS firewall does not ask about it.
+The ORCA tile turns on by itself if Orca has run on this Mac.
 
-Tests: `cd mac/HubKit && swift test`.
+To build from source you need Xcode:
 
-### On another Mac
+    mac/install.sh     # build, copy to /Applications and start
+    mac/package.sh     # build for Apple silicon and Intel into mac/build/Pixeldeck.zip
 
-`mac/package.sh` makes a zip to send; the app needs macOS 15 or later. Nothing in it is tied to this Mac: the data lives in `~/.pixeldeck` of whoever runs it, and Orca and `gh` are looked up in their home.
+## Using it
 
-1. Unzip, move `Pixeldeck.app` into Applications and open it. The app is not notarized, so macOS refuses the first launch: System Settings → Privacy & Security → Open Anyway. Notarizing needs a paid Apple developer account.
-2. Right-click the notch, choose Settings and click Connect next to the Pixeldeck plugin. It needs `claude` in Terminal; Claude sessions started afterwards show on the board.
-3. For the GITHUB tile, `gh auth login` in Terminal.
+The board closes when the pointer leaves and never takes focus from the app you are in. On a display without a notch it hangs from the middle of the menu bar.
 
-## Board
+- To go back from a list, swipe right or click its name beside the notch, such as `< ORCA`.
+- Swipe right on the board for the integrations, left to come back.
+- Pull down on the board or the GitHub list to ask GitHub right away, on the Orca list to ask Orca.
+- Swipe an Orca chat left for its close button.
 
-The screen is made of tiles and a feed. The feed at the bottom holds only cards sent by scripts and agents.
+Mouse drags and two-finger trackpad swipes both work. The mouse wheel only scrolls.
 
-The cat beside the notch shows the connection to the hub. Orange and awake means the hub answers. Grey means no connection: it sleeps while offline and looks around while connecting.
+There is no menu bar icon. Right-click the notch for the menu with the hub status, Settings and Quit. Settings has the integration switches, calendar access, the Claude Code plugin, the hub log and Launch at Login.
 
-**ORCA.** Every 3 seconds the hub asks Orca for its chats and agent terminals, whichever provider runs them, and the tile counts them by state: a coloured dot and a number each for waiting, running, failed and done. A waiting chat turns the tile's border yellow. Click the tile for the list of all of them by name, waiting ones first, with the provider and the project under the name (`claude · Pixeldeck`). Click a row to open that chat in Orca, swipe right or click `< ORCA` beside the notch to go back, pull the list down to ask Orca right away. The board sends only the key, so it cannot open anything Orca did not report. Swipe a row left to uncover the close button, as in Messages. A long swipe closes a finished chat right away; a chat with a working or waiting agent only closes by a click on the button, because that stops the agent. Scheduled runs (`tg-digest run 3438`) are hidden unless they wait for you. Tabs pinned in Orca go to the top of the list with a pin in the corner. Orca does not report what a chat asks, so an `AskUserQuestion` question comes from the Claude hooks and only Claude chats show one under their row. The hub talks to the socket the `orca` command uses (`OrcaRuntime.swift`); this API is internal to Orca and may change with an update, so a failure ends up in `hub.log`. The socket does not report pins, so the hub reads them from `profile-state.db`, read-only and only when its revision changes (`OrcaPins.swift`), which puts them up to 5 seconds behind the window. If that fails the last known pins stay and the chats are not affected.
+## Tiles
 
-**CLAUDE.** Claude Code reports through the plugin in `mac/ClaudePlugin`: its hook `claude-hook.sh` posts each event to `POST /claude-events` without the prompt or tool output, and its `.mcp.json` gives Claude the tools from MCP below. Claude Code reads a plugin from its folder in place, so the app copies its own to `~/.pixeldeck/claude-plugin` at every launch: the hooks survive moving or deleting the app and follow its updates. Connect in Settings runs `claude plugin install pixeldeck --marketplace ~/.pixeldeck/claude-plugin`; for another config folder run the same in Terminal with `CLAUDE_CONFIG_DIR` set. The tile counts the Claude Code sessions outside Orca and stays hidden while there are none. Finished sessions stay for two minutes. Click the tile for the list and swipe right or click `< CLAUDE` to go back; these sessions cannot be opened or closed from the board. While Orca is switched off or does not answer, the sessions inside it show here too, so the board keeps counting them. The logic is in `mac/HubKit/Sources/HubKit/ClaudeActivity.swift`.
-
-The character sits on the top agent tile, ORCA or else CLAUDE, and reacts to both: to every session outside Orca and to the chats in Orca that are at work or finished within the last two minutes. Its text from `set_status` sits there too.
-
-**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, skipping drafts. The logic is in `mac/HubKit/Sources/HubKit/Github.swift`. The tile has a line each for your pull requests and for review requests, with a coloured dot and a number per state. The octopus beside them acts out the most urgent light: it blows bubbles while CI runs, waves when changes are requested, goes red when CI fails, reads a page when your review is requested, and is pleased with an approved pull request. Click the tile for the list, click a row to open the pull request in the browser. The board sends only the key, so it cannot make the Mac open anything GitHub did not report. Swipe right or click `< GITHUB` beside the notch to go back to the board. Pull down on the board or the list to ask GitHub right away. The cross switches a light off until the checks, the review decision or the title change; muted items are kept in `~/.pixeldeck/github-muted.json`.
+Each tile has a coloured light and a count per state. The feed under the tiles holds cards from scripts and agents. The cat beside the notch is orange while the hub answers and grey when it does not.
 
 | Light | Agent | My pull request | Meeting |
 | --- | --- | --- | --- |
 | orange, breathing | working | CI running | under way |
-| yellow, blinking | waiting for you | changes requested | time to join: from 2 minutes before the start to 5 minutes into it |
+| yellow, blinking | waiting for you | changes requested | time to join, from 2 minutes before to 5 minutes after the start |
 | green | finished | approved, CI green | |
 | red | failed | CI failed | |
 | grey | | awaiting review | later today |
 | blue | | your review is requested | within 10 minutes |
 
-**MEETINGS.** The app reads the calendar itself, so the hub never gets the meetings. Once a minute it asks the Calendar app of this Mac for today's events, so a Google, iCloud or Exchange calendar has to be added there in System Settings → Internet Accounts. It needs access once: Settings → Calendar → Allow, and the same section says how many meetings are left today, so an account missing from the Calendar shows there. A meeting is an event that is not all-day, not cancelled and not declined, with you among its guests, or an event of your own with a call link. Events with guests but without you, such as those of a colleague whose calendar is shared with you, do not count, and neither do birthdays and subscribed calendars. The tile shows the meeting to join, else the one within ten minutes, else the one under way, else the next one today, and how many more are left; it hides once the day has none. Click it for the list, click a row to open the call in the browser. The link is the first Google Meet, Zoom or Teams address in the URL, the location or the notes of the event; a row without one says `no link` and does nothing. The code is in `mac/PixeldeckMac/MeetingCalendar.swift`, the phases in `mac/PixeldeckMac/Board/Meeting.swift`.
+**ORCA.** Every 3 seconds the hub asks Orca for its chats and agent terminals, whatever provider runs them. A waiting chat turns the tile border yellow. The list puts pinned tabs on top and waiting chats first, with the provider and project under each name (`claude · Pixeldeck`). Scheduled runs stay hidden unless they wait for you. A long swipe left closes a finished chat right away. A chat with a working or waiting agent closes only with the button, because closing it stops the agent.
 
-**INTEGRATIONS.** Swipe right on the board for the catalog, swipe left to come back. Click an integration to switch it on or off, or use the switches in Settings. The hub keeps the choice in `state.json`, so it survives restarts. A new board starts with what the Mac has: ORCA if Orca has run there, GITHUB if `gh` has a login, CLAUDE always. A switched-off integration loses its tile: GitHub stops asking `gh`, Orca stops being asked, Claude keeps following sessions and shows them again when switched back on. The character and `set_status` go with the last agent tile; cards stay in the feed. With everything off, no cards and no meetings left today the board goes to the character, who has nothing to do: the skits are in `EmptyBoard.swift`. A new integration is an entry in `Integration.catalog` in `Schema.swift`, a tile in `Board/Scene.swift` and a name for Settings in `SettingsView.swift`.
+Orca does not report the questions agents ask, so an `AskUserQuestion` shows only under Claude chats, where the plugin reports it. The hub talks to the same socket as the `orca` command. That API is internal to Orca and may break with an update; errors go to `~/.pixeldeck/hub.log`.
 
-## Notch
+**CLAUDE.** The tile counts Claude Code sessions outside Orca and hides while there are none. Finished sessions stay for two minutes. You can't open or close them from the board. If Orca is off or not answering, its Claude sessions show here too.
 
-The app shows the board in the notch of the MacBook, or under a notch-sized spot in the middle of the menu bar on a screen without one. The notch reads the hub of the same app over `127.0.0.1:7777`, so a stopped or failed hub puts it to sleep.
+The character sits on the top agent tile and reacts to sessions in both. It also shows the text from `set_status`.
 
-Closed, the notch grows wings only while there is something to see. The character on the left wing is the one from the top agent tile, with the same mood; the right wing has a light and a number for the agents that are running, waiting or failed, and after a line the next meeting within ten minutes: `7m`, then `now` when it is time to join. Finished agents only make the character happy. While the hub is away both sleep, and the grey critter takes the right wing; the meeting stays, since the calendar does not go through the hub. With nothing going on the notch stays as it is.
+**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, drafts skipped. The octopus acts out the most urgent state: it blows bubbles while CI runs, waves at requested changes, goes red when CI fails, reads when your review is requested and looks pleased with an approval. The × on a row mutes it until its checks, review decision or title change.
 
-When something happens, the closed notch drops a line under itself for three seconds, so it is not missed while nobody looks at the wings: a new card with its title, an agent that finished, failed or waits for you (`Pixeldeck finished`), a pull request of yours that got approved, failed CI or got changes requested (`#412 Fix the build approved`), a meeting five minutes before it and as it starts (`Billing sync in 5m`, `Billing sync starts now`). A reminder missed by more than a minute, while the notch was open, is not told late. The name is cut short first, so the change always shows. Only rows the notch has already seen count, so a hub that starts or an integration switched on stays silent. Several pieces of news follow one another; a newer one about the same row replaces the one still waiting. Nothing queues while the notch is open, since the board shows it all.
+**MEETINGS.** Once a minute the app reads today's events from the Calendar app. A meeting is an event you are invited to and have not declined, or your own event with a call link. All-day and cancelled events, colleagues' shared calendars, birthdays and subscribed calendars don't count. The tile shows the current or next meeting and how many are left today. A row opens the first Google Meet, Zoom or Teams link from the event's URL, location or notes. Rows without one say `no link`.
 
-Rest the pointer on the notch and it opens into the board with its tiles, lists, catalog and cards, the clock and the critter beside the camera, its height following the content up to 60% of the screen. It closes once the pointer leaves. A mouse drag and two fingers on the trackpad do the same things: scroll, pull down to refresh, swipe right to the catalog or back from a list, swipe a chat left for its close button. A mouse wheel only scrolls. Links on cards open in the browser. Right-click for the menu.
-
-The panel lies over the menu bar, never takes focus from the app in front, and lets clicks through everywhere outside the black shape. The code is in `mac/PixeldeckMac/Notch`: `NotchController.swift` follows the pointer, `NotchView.swift` draws the shape, `NotchBar.swift` the wings and the line of news, `NotchNews.swift` tells what happened from two decks in a row, `TrackpadDrags.swift` turns trackpad scrolling into drags. The closed notch stays on screen all day, so `WingsView.swift` draws it into a layer on its own clock: through SwiftUI twelve frames a second cost several percent of the CPU, this way it is about one.
+**Integrations.** Switch tiles on and off in the catalog or in Settings. The choice survives restarts. A switched-off ORCA or GITHUB stops asking for data. CLAUDE keeps tracking sessions and shows them again when switched back on. With nothing to show, the character plays short skits on the empty board.
 
 ## Cards
 
@@ -126,9 +127,9 @@ The hub takes requests only from this Mac and refuses those from browsers.
       ]
     }'
 
-- `key` is optional: a card with the same key replaces the previous one.
-- `sprite` sets the picture and the border color: `idle`, `walk`, `thinking`, `waiting`, `done`, `error`, `alert`, `sleep`. You can send your own, up to 32×32: `{"palette": {"a": "#ff0000"}, "frames": [["a.a", ".a."]], "fps": 4}`.
-- A card has up to four actions, each with one of: `url` opens in the browser, `run` starts an action from the config, `reply` answers whoever is waiting and removes the card.
+- `key` is optional. A card with the same key replaces the previous one.
+- `sprite` sets the picture and the border colour: `idle`, `walk`, `thinking`, `waiting`, `done`, `error`, `alert`, `sleep`. A custom one is up to 32×32: `{"palette": {"a": "#ff0000"}, "frames": [["a.a", ".a."]], "fps": 4}`.
+- A card has up to four actions. `url` opens in the browser, `run` starts an action from the config, `reply` answers whoever is waiting and removes the card.
 
 | Request | What it does |
 | --- | --- |
@@ -139,31 +140,49 @@ The hub takes requests only from this Mac and refuses those from browsers.
 | `PUT /status` | set the character's mood: `{"mood": "thinking", "text": "...", "ttlSeconds": 1800}` |
 | `PUT /integrations/:id` | switch `orca`, `claude` or `github`: `{"isOn": false}` |
 
-Moods: `idle`, `thinking`, `waiting`, `done`, `error`. Anything except `idle` resets by itself after `ttlSeconds`.
+Moods are `idle`, `thinking`, `waiting`, `done` and `error`. Any mood except `idle` resets after `ttlSeconds`.
 
-## Actions on the Mac
+## Actions
 
-A card refers to an action by name; the commands live in `~/.pixeldeck/actions.json`, so a card cannot run arbitrary commands on the Mac. The file is reread on every press, no restart needed.
+A card names an action, and the command lives in `~/.pixeldeck/actions.json`, so a card can't run arbitrary commands. The file is reread on every press.
 
     {
       "merge-pr": { "command": ["gh", "pr", "merge", "--squash"], "timeoutSeconds": 120 }
     }
 
-`args` from the card are appended to the command as separate arguments, without a shell.
+`args` from the card are appended as separate arguments, without a shell.
 
 ## MCP
 
-Claude Code gets the server with the plugin. Another client takes it by hand:
+Claude Code gets the MCP server with the plugin. Other clients add it by hand:
 
     claude mcp add --transport http pixeldeck http://127.0.0.1:7777/mcp
 
 Tools: `show_card`, `set_status`, `ask` (a question on the board that waits for a click), `remove_card`, `list_cards`.
 
-## How the board is drawn
+## Privacy
 
-Frames are drawn into small buffers and scaled up without smoothing. On a Retina screen the board uses 4 physical pixels per cell, the feed, the pull request list and the row beside the notch use 3. That row holds the clock on the board and the way back on the lists. The board redraws 12 times a second; the feed is a separate layer that follows the display rate while it moves.
+- The hub listens only on `127.0.0.1:7777`.
+- The Claude hook sends session events without prompts or tool output.
+- Orca data comes from its local socket. Pinned tabs are read from Orca's `profile-state.db`, read-only.
+- GitHub data comes from your `gh`.
+- The app reads the calendar itself, and meetings never reach the hub.
+- State, actions, muted pull requests, the log and a copy of the Claude plugin are in `~/.pixeldeck/`.
 
-The code is in `mac/PixeldeckMac/Board`: `Scene.swift` draws the tiles and keeps the click zones, `CardFeed.swift` draws the feed and the list, `Light.swift` draws the lights, `DeckModel.swift` holds the connection, `DeckGestures.swift` turns drags and clicks into scrolling, swipes and presses, `FrameView.swift` stacks the layers of a frame. The characters are generated by `tools/make_sprites.py`, the font (X11 6×10, public domain) is baked by `tools/bake_font.py`, the icon by `tools/make_icon.py`.
+The app has no sandbox, because it runs `gh` and `claude`.
+
+## Code
+
+| Path | Contents |
+| --- | --- |
+| `mac/HubKit` | the hub: HTTP and MCP server, Orca, GitHub and Claude tracking. Tests: `cd mac/HubKit && swift test` |
+| `mac/PixeldeckMac` | the app: Settings, calendar, starting and stopping the hub |
+| `mac/PixeldeckMac/Notch` | the notch panel, wings and news line |
+| `mac/PixeldeckMac/Board` | the board, drawn into small pixel buffers and scaled up without smoothing |
+| `mac/ClaudePlugin` | the Claude Code plugin with the hook and MCP config. The app copies it to `~/.pixeldeck/claude-plugin` on every launch |
+| `tools` | generators for the sprites, the font (X11 6×10, public domain) and the icon |
+
+A new integration needs an entry in `Integration.catalog` in `Schema.swift`, a tile in `Board/Scene.swift` and a name in `SettingsView.swift`.
 
 ## License
 
