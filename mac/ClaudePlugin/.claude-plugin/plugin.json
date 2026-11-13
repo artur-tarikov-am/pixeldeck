@@ -1,0 +1,5 @@
+{
+  "name": "pixeldeck",
+  "version": "1.0.0",
+  "description": "Shows Claude Code sessions on the Pixeldeck board and gives Claude its tools: cards, the mood of the character and questions that wait for a tap"
+}

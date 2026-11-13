@@ -1,0 +1,13 @@
+{
+  "name": "pixeldeck",
+  "owner": {
+    "name": "Pixeldeck"
+  },
+  "plugins": [
+    {
+      "name": "pixeldeck",
+      "source": "./",
+      "description": "Shows Claude Code sessions on the Pixeldeck board and gives Claude its tools"
+    }
+  ]
+}
