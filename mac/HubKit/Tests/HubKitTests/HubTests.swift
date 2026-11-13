@@ -219,7 +219,12 @@ private let actionsJSON = #"""
     @Test func aCancelledStartDoesNotPretendToListen() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "pixeldeck-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let hub = Hub(dataDirectory: directory, log: HubLog(dataDirectory: directory), fetchPullRequests: { [] })
+        let hub = Hub(
+            dataDirectory: directory,
+            log: HubLog(dataDirectory: directory),
+            fetchPullRequests: { [] },
+            fetchMentions: { [] }
+        )
         let start = Task {
             withUnsafeCurrentTask { $0?.cancel() }
             return try await hub.start(port: 0, onFailure: { _ in })

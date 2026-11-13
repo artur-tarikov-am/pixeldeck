@@ -35,6 +35,7 @@ While something is going on, the closed notch grows wings. The left one holds th
 - a card arrives,
 - an agent finishes, fails or waits for you (`Pixeldeck finished`),
 - your pull request is approved, fails CI or gets changes requested (`#412 Fix the build approved`),
+- someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
 <table>
@@ -44,7 +45,7 @@ While something is going on, the closed notch grows wings. The left one holds th
   </tr>
   <tr>
     <td align="center">Orca chats, waiting ones first. A click opens the chat in Orca.</td>
-    <td align="center">Your pull requests and the ones waiting for your review</td>
+    <td align="center">Your pull requests, the ones waiting for your review and mentions of you</td>
   </tr>
   <tr>
     <td valign="top"><img src="docs/images/meetings.png" alt="Today's meetings"></td>
@@ -106,7 +107,9 @@ Orca does not report the questions agents ask, so an `AskUserQuestion` shows onl
 
 The character sits on the top agent tile and reacts to sessions in both. It also shows the text from `set_status`.
 
-**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, drafts skipped. The octopus acts out the most urgent state: it blows bubbles while CI runs, waves at requested changes, goes red when CI fails, reads when your review is requested and looks pleased with an approval. The × on a row mutes it until its checks, review decision or title change.
+**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, drafts skipped. The octopus acts out the most urgent state: it blows bubbles while CI runs, waves at requested changes and mentions, goes red when CI fails, reads when your review is requested and looks pleased with an approval. The × on a row mutes it until its checks, review decision or title change.
+
+Mentions come from your unread GitHub notifications. For each pull request or issue the row shows the latest comment from the past week where someone wrote `@you`, with the author and the line that mentions you. Bots, team mentions and quoted text don't count. A click opens the comment and clears the row; a newer mention in the same thread brings it back.
 
 **MEETINGS.** Once a minute the app reads today's events from the Calendar app. A meeting is an event you are invited to and have not declined, or your own event with a call link. All-day and cancelled events, colleagues' shared calendars, birthdays and subscribed calendars don't count. The tile shows the current or next meeting and how many are left today. A row opens the first Google Meet, Zoom or Teams link from the event's URL, location or notes. Rows without one say `no link`.
 
@@ -167,7 +170,7 @@ Tools: `show_card`, `set_status`, `ask` (a question on the board that waits for 
 - Orca data comes from its local socket. Pinned tabs are read from Orca's `profile-state.db`, read-only.
 - GitHub data comes from your `gh`.
 - The app reads the calendar itself, and meetings never reach the hub.
-- State, actions, muted pull requests, the log and a copy of the Claude plugin are in `~/.pixeldeck/`.
+- State, actions, muted GitHub rows, the log and a copy of the Claude plugin are in `~/.pixeldeck/`.
 
 The app has no sandbox, because it runs `gh` and `claude`.
 

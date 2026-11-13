@@ -14,6 +14,7 @@ public final class Hub: Sendable {
         log: HubLog,
         isSetUp: IsSetUp = IntegrationID.isSetUpOnThisMac,
         fetchPullRequests: @escaping FetchPullRequests = GithubCommands.fetchPullRequests,
+        fetchMentions: FetchMentions? = nil,
         openURL: OpenURL? = nil,
         fetchChats: @escaping FetchChats = OrcaCommands.fetchChats,
         openChat: @escaping OpenChat = OrcaCommands.openChat,
@@ -28,7 +29,12 @@ public final class Hub: Sendable {
             store: store, claude: claude, log: log, now: now, fetch: fetchChats, openChat: openChat, closeChat: closeChat
         )
         github = GithubWatcher(
-            store: store, dataDirectory: dataDirectory, log: log, fetch: fetchPullRequests, openURL: openURL
+            store: store,
+            dataDirectory: dataDirectory,
+            log: log,
+            fetch: fetchPullRequests,
+            fetchMentions: fetchMentions,
+            openURL: openURL
         )
     }
 

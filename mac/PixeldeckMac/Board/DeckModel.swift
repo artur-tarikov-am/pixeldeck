@@ -86,7 +86,7 @@ final class DeckModel {
         await post(path: "/orca-closes", body: ["key": key])
     }
 
-    func openOnMac(pullRequest card: Card) {
+    func openOnMac(github card: Card) {
         send(path: "/github-opens", method: "POST", body: ["key": card.id])
     }
 
@@ -94,7 +94,7 @@ final class DeckModel {
         send(path: "/orca-opens", method: "POST", body: ["key": key])
     }
 
-    func mute(pullRequest card: Card) {
+    func mute(github card: Card) {
         send(path: "/github-mutes", method: "POST", body: ["key": card.id])
     }
 

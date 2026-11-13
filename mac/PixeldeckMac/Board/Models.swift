@@ -72,7 +72,7 @@ struct ClaudeSession: Decodable {
 
 struct GithubItem: Decodable {
     enum Group: String, Decodable {
-        case mine, review
+        case mine, review, mention
     }
 
     var key: String

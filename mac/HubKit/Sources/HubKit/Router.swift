@@ -90,11 +90,11 @@ extension Hub {
             await responder.send(204)
         case "POST /github-mutes":
             let input = try decodeJSON(KeyInput.self, from: request.body)
-            guard await github.mute(key: input.key) else { throw HTTPError(404, "pull request not found") }
+            guard await github.mute(key: input.key) else { throw HTTPError(404, "no such GitHub row") }
             await responder.send(204)
         case "POST /github-opens":
             let input = try decodeJSON(KeyInput.self, from: request.body)
-            guard await github.open(key: input.key) else { throw HTTPError(404, "pull request not found") }
+            guard await github.open(key: input.key) else { throw HTTPError(404, "no such GitHub row") }
             await responder.send(204)
         case "PUT /integrations/:id":
             guard let integration = IntegrationID(rawValue: id) else { throw HTTPError(404, "integration not found") }

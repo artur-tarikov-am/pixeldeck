@@ -93,7 +93,7 @@ final class Scene {
     static let cornerRadius = 6
     private static let characterScale = 2
     private static let characterSide = 32
-    private static let groupLabelWidth = 40
+    private static let groupLabelWidth = 48
     private static let countGap = 6
     private static let arrivalReaction: TimeInterval = 3
     private static let animationFramesPerSecond = 12.0
@@ -650,6 +650,7 @@ final class Scene {
         let groups: [(label: String, items: [GithubItem])] = [
             ("mine", deck.github.filter { $0.group == .mine }),
             ("review", deck.github.filter { $0.group == .review }),
+            ("mention", deck.github.filter { $0.group == .mention }),
         ]
         let height = 2 * Self.padding + (groups.count + 1) * Self.lineHeight
         let tile = Box(x: Self.margin, y: top, width: width, height: height)

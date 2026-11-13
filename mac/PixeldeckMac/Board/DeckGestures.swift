@@ -277,10 +277,10 @@ final class DeckGestures {
         switch target {
         case .action(let card, let index): model.press(card: card, actionIndex: index)
         case .dismiss(let card): model.dismiss(card: card)
-        case .mute(let card): model.mute(pullRequest: card)
+        case .mute(let card): model.mute(github: card)
         case .openOnMac(let card):
             Feedback.light.play()
-            model.openOnMac(pullRequest: card)
+            model.openOnMac(github: card)
         case .openChat(let key):
             Feedback.light.play()
             model.openChat(key: key)

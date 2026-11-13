@@ -1,8 +1,8 @@
 import Foundation
 
 /// What just happened on the board, told one at a time in a line under the closed notch,
-/// so it does not pass by while nobody looks at the wings. News are the cards that arrive,
-/// the agents and pull requests whose light turns to something worth a glance,
+/// so it does not pass by while nobody looks at the wings. News are the cards and GitHub mentions
+/// that arrive, the agents and pull requests whose light turns to something worth a glance,
 /// and the meetings five minutes before they start and as they start.
 @MainActor
 final class NotchNews {
@@ -96,6 +96,10 @@ final class NotchNews {
             )
         }
         if new.showsGithub {
+            let knownGithub = Set(old.github.map(\.key))
+            news += new.github.filter { $0.group == .mention && !knownGithub.contains($0.key) }.map {
+                Item(key: $0.key, light: $0.light, name: $0.text)
+            }
             news += changes(
                 from: old.github.map { Row(key: $0.key, light: $0.light, name: $0.title) },
                 to: new.github.map { Row(key: $0.key, light: $0.light, name: $0.title) },
@@ -124,7 +128,7 @@ final class NotchNews {
         }
     }
 
-    /// Review requests always have the same light, so only pull requests of the user change.
+    /// Review requests and mentions always have the same light, so only pull requests of the user change.
     private static func pullRequestChange(_ light: Light) -> String? {
         switch light {
         case .done: "approved"

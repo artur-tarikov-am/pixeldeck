@@ -102,7 +102,7 @@ public struct OrcaSession: Codable, Sendable, Equatable {
 
 public struct GithubItem: Codable, Sendable, Equatable {
     public enum Group: String, Codable, Sendable {
-        case mine, review
+        case mine, review, mention
     }
 
     public var key: String
@@ -137,7 +137,7 @@ public struct Integration: Codable, Sendable, Equatable {
     static let catalog = [
         Integration(id: .orca, title: "ORCA", text: "chats and agent terminals in Orca, of any provider", isOn: true),
         Integration(id: .claude, title: "CLAUDE", text: "Claude Code sessions outside Orca", isOn: true),
-        Integration(id: .github, title: "GITHUB", text: "your pull requests and review requests", isOn: true),
+        Integration(id: .github, title: "GITHUB", text: "your pull requests, review requests and mentions", isOn: true),
     ]
 
     /// A new board shows only what this Mac can feed.
