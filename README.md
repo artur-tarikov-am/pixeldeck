@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.gif" width="800" alt="The open notch: tiles for Orca chats, GitHub pull requests and the next meeting, and two cards sent by scripts">
+  <img src="docs/images/hero.gif" width="800" alt="The open notch: tiles for Orca chats, GitHub pull requests and mentions, the next meeting, and two cards sent by scripts">
 </p>
 
 Rest the pointer on the notch and it opens into the board. Click a tile for its list, click a row to jump to the chat, pull request or call.
@@ -27,7 +27,7 @@ Rest the pointer on the notch and it opens into the board. Click a tile for its 
     Claude, agents ───MCP──┘
 
 <p align="center">
-  <img src="docs/images/closed.gif" width="600" alt="The closed notch with the character on the left wing and counts of agents and a meeting on the right, then two lines of news under it">
+  <img src="docs/images/closed.gif" width="600" alt="The closed notch with the character on the left wing and counts of agents and a meeting on the right, then three lines of news under it: an agent finished, a pull request approved, a mention">
 </p>
 
 While something is going on, the closed notch grows wings. The left one holds the character. The right one counts agents that are running, waiting or failed, and shows the next meeting as `7m`, then `now`. A line of news drops under the notch for three seconds when:
@@ -39,6 +39,10 @@ While something is going on, the closed notch grows wings. The left one holds th
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
 If the wings show the same for three minutes, the character leaves and the counts on the right dim, still readable; with nothing to count the wings fold. It moonwalks into the notch, flies off on its antenna, vanishes in a puff of smoke, or takes one of four other exits. It comes back its own way, one of six, as soon as something changes, or after you hover over the notch and the board closes. Settings → Notch changes the time, from 15 seconds to half an hour, or keeps the character on the wing.
+
+<p align="center">
+  <img src="docs/images/away.gif" width="600" alt="The character moonwalks into the notch and the counts dim; then an agent finishes, the character drops back from above and a line of news tells which agent">
+</p>
 
 <table>
   <tr>
@@ -90,7 +94,7 @@ There is no menu bar icon. Right-click the notch for the menu with the hub statu
 
 ## Tiles
 
-Each tile has a coloured light and a count per state. The feed under the tiles holds cards from scripts and agents. The cat beside the notch is orange while the hub answers and grey when it does not.
+Each tile has a coloured light and a count per state. The feed under the tiles holds cards from scripts and agents. While the hub does not answer, the top tile says `waiting for hub`, the character and the octopus sleep, and a grey critter sits on the right wing of the closed notch.
 
 | Light | Agent | My pull request | Meeting |
 | --- | --- | --- | --- |
@@ -185,7 +189,7 @@ The app has no sandbox, because it runs `gh` and `claude`.
 | `mac/PixeldeckMac/Notch` | the notch panel, wings and news line |
 | `mac/PixeldeckMac/Board` | the board, drawn into small pixel buffers and scaled up without smoothing |
 | `mac/ClaudePlugin` | the Claude Code plugin with the hook and MCP config. The app copies it to `~/.pixeldeck/claude-plugin` on every launch |
-| `tools` | generators for the sprites, the font (X11 6×10, public domain), the icon and the lights in this README |
+| `tools` | generators for the sprites, the font (X11 6×10, public domain), the icon and the pictures in this README |
 
 A new integration needs an entry in `Integration.catalog` in `Schema.swift`, a tile in `Board/Scene.swift` and a name in `SettingsView.swift`.
 
