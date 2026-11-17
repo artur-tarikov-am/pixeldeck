@@ -130,68 +130,20 @@ TUMBLEWEED = [
 # Small enough for the strip beside the notch.
 CRITTER_WIDTH = 14
 CRITTER_HEIGHT = 12
-CRITTER_EYES_TOP = 3
-CRITTER_OFFLINE_COAT = str.maketrans({"o": "a", "h": "a", "s": "d"})
-CRITTER_SITTING = [
-    ".o......o.....",
-    ".oh....ho.....",
-    ".oooooooo.....",
-    ".oooooooo.....",
-    ".oooooooo.....",
-    ".oooooooo.....",
-    "..oooooo......",
-    "..oooooo......",
-    ".oooooooo.....",
-    ".oooooooo.....",
-    ".oooooooo.....",
-    ".ss.ss.ss.....",
+CRITTER_SLEEPING = [
+    "..............",
+    "..............",
+    "..............",
+    "..............",
+    ".a......a.....",
+    ".aa....aa.....",
+    ".aaaaaaaaaaa..",
+    ".aaaaaaaaaaaa.",
+    ".aeeaaeeaaaaa.",
+    ".aaaaaaaaaaaa.",
+    ".aaaaaaaaaaaa.",
+    "..dddddddddd..",
 ]
-CRITTER_LYING = [
-    "..............",
-    "..............",
-    "..............",
-    "..............",
-    ".o......o.....",
-    ".oh....ho.....",
-    ".ooooooooooo..",
-    ".oooooooooooo.",
-    ".oeeooeeooooo.",
-    ".oooooooooooo.",
-    ".oooooooooooo.",
-    "..ssssssssss..",
-]
-CRITTER_EYES = {
-    "open": ["e", "e"],
-    "shut": ["e"],
-}
-CRITTER_TAILS = {
-    "up": [
-        "",
-        "",
-        "",
-        "",
-        "............o.",
-        "............oo",
-        ".............o",
-        ".............o",
-        "............oo",
-        "...........oo.",
-        ".........ooo..",
-    ],
-    "swish": [
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "..............",
-        "..............",
-        ".............o",
-        "............oo",
-        ".........oooo.",
-    ],
-}
 Z_TINY = ["bbb", ".b.", "bbb"]
 
 
@@ -210,26 +162,9 @@ def tumbleweed_frames():
     return frames
 
 
-def critter(eyes="open", tail="up", eye_shift=0, is_online=True, extras=()):
-    canvas = Canvas(CRITTER_WIDTH, CRITTER_HEIGHT)
-    canvas.paint(0, 0, CRITTER_SITTING)
-    canvas.paint(0, 0, CRITTER_TAILS[tail])
-    canvas.paint(3 + eye_shift, CRITTER_EYES_TOP, CRITTER_EYES[eyes])
-    canvas.paint(6 + eye_shift, CRITTER_EYES_TOP, CRITTER_EYES[eyes])
-    return finish_critter(canvas, is_online, extras)
-
-
 def sleeping_critter(extras=()):
     canvas = Canvas(CRITTER_WIDTH, CRITTER_HEIGHT)
-    canvas.paint(0, 0, CRITTER_LYING)
-    return finish_critter(canvas, is_online=False, extras=extras)
-
-
-def finish_critter(canvas, is_online, extras):
-    rows = canvas.text()
-    if not is_online:
-        rows = [row.translate(CRITTER_OFFLINE_COAT) for row in rows]
-    canvas.rows = [list(row) for row in rows]
+    canvas.paint(0, 0, CRITTER_SLEEPING)
     for x, y, pixels in extras:
         canvas.paint(x, y, pixels)
     return canvas.text()
@@ -628,24 +563,6 @@ def sprites():
             ],
         },
         "pant": {"fps": 6, "frames": [panting(step) for step in range(4)]},
-        "critter_online": {
-            "fps": 4,
-            "frames": [critter()] * 5 + [critter(eyes="shut")] + [critter()] * 4 + [
-                critter(tail="swish"),
-                critter(),
-                critter(tail="swish"),
-                critter(),
-            ],
-        },
-        "critter_connecting": {
-            "fps": 2,
-            "frames": [
-                critter(eye_shift=-1, tail="swish", is_online=False),
-                critter(eye_shift=-1, tail="swish", is_online=False),
-                critter(eye_shift=1, tail="swish", is_online=False),
-                critter(eye_shift=1, tail="swish", is_online=False),
-            ],
-        },
         "critter_offline": {
             "fps": 2,
             "frames": [

@@ -45,21 +45,10 @@ enum PullState {
     }
 }
 
-private extension Connection {
-    /// The critter wears its orange coat only while the Mac is reachable.
-    var critterSprite: String {
-        switch self {
-        case .online: "critter_online"
-        case .connecting: "critter_connecting"
-        case .offline: "critter_offline"
-        }
-    }
-}
-
 /// The scrolling feed lives in its own layer so it can move between grid rows.
 struct Frame {
     var board: CGImage
-    /// The clock or the way back and the critter showing the connection, fixed beside the notch while the content moves.
+    /// The way back from a list, fixed beside the notch while the content moves.
     var header: CGImage?
     /// The screen underneath while a swipe drags the current one away.
     var backdrop: CGImage?
@@ -304,7 +293,7 @@ final class Scene {
     ) {
         var buffer = makeBuffer(size)
         boardTargets = []
-        header = drawHeader(connection: connection, now: now, size: size, safeTop: safeTop, time: time)
+        header = drawHeader(size: size, safeTop: safeTop)
         let contentTop = headerRows(safeTop: safeTop)
 
         let feedRow: Int
@@ -500,31 +489,17 @@ final class Scene {
         }
     }
 
-    /// Uses the finer grid of the feed, so the critter stays small enough for the strip beside the notch.
-    private func drawHeader(
-        connection: Connection,
-        now: Date,
-        size: CGSize,
-        safeTop: CGFloat,
-        time: TimeInterval
-    ) -> CGImage? {
+    /// Uses the finer grid of the feed, the size of the text on the cards.
+    private func drawHeader(size: CGSize, safeTop: CGFloat) -> CGImage? {
+        guard let backLabel else { return nil }
         var buffer = Framebuffer(
             width: Int(size.width / Self.feedPixel),
             height: Int(safeTop / Self.feedPixel)
         )
         let inset = Int(Self.headerSideInset / Self.feedPixel)
-        let textY = (buffer.height - font.glyphHeight) / 2
-        if let backLabel {
-            font.draw(backLabel, x: inset, y: textY, color: Palette.accent, into: &buffer)
-        } else {
-            font.draw(clock.string(from: now), x: inset, y: textY, color: Palette.text, into: &buffer)
-        }
-        if let critter = SpriteLibrary.named(connection.critterSprite) {
-            critter.draw(
-                at: time, x: buffer.width - inset - critter.width, y: (buffer.height - critter.height) / 2,
-                into: &buffer
-            )
-        }
+        font.draw(
+            backLabel, x: inset, y: (buffer.height - font.glyphHeight) / 2, color: Palette.accent, into: &buffer
+        )
         return buffer.makeImage()
     }
 
