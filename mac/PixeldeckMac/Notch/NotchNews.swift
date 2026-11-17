@@ -2,8 +2,8 @@ import Foundation
 
 /// What just happened on the board, told one at a time in a line under the closed notch,
 /// so it does not pass by while nobody looks at the wings. News are the cards and GitHub mentions
-/// that arrive, the agents and pull requests whose light turns to something worth a glance,
-/// and the meetings five minutes before they start and as they start.
+/// that arrive, approvals of the user's pull requests, the agents and pull requests whose light turns
+/// to something worth a glance, and the meetings five minutes before they start and as they start.
 @MainActor
 final class NotchNews {
     struct Item {
@@ -105,8 +105,24 @@ final class NotchNews {
                 to: new.github.map { Row(key: $0.key, light: $0.light, name: $0.title) },
                 says: pullRequestChange
             )
+            news += approvals(from: old.github, to: new.github)
         }
         return news
+    }
+
+    /// Comes after the changes of light: when an approval also turns the pull request green,
+    /// the line names who approved it.
+    private static func approvals(from old: [GithubItem], to new: [GithubItem]) -> [Item] {
+        let before = Dictionary(
+            old.compactMap { row in row.approvedBy.map { (row.key, Set($0)) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return new.compactMap { row in
+            guard let approvedBefore = before[row.key],
+                  let newcomers = row.approvedBy?.filter({ !approvedBefore.contains($0) }), !newcomers.isEmpty
+            else { return nil }
+            return Item(key: row.key, light: .done, name: row.title, change: "approved by \(newcomers.joined(separator: ", "))")
+        }
     }
 
     /// Only rows that were there before: a row that just appeared, such as every chat
@@ -131,7 +147,7 @@ final class NotchNews {
     /// Review requests and mentions always have the same light, so only pull requests of the user change.
     private static func pullRequestChange(_ light: Light) -> String? {
         switch light {
-        case .done: "approved"
+        case .done: "ready to merge"
         case .failed: "CI failed"
         case .waiting: "changes requested"
         case .running, .idle, .review: nil

@@ -80,6 +80,8 @@ struct GithubItem: Decodable {
     var light: Light
     var title: String
     var text: String
+    /// Who approved a pull request of the user, nil when the hub does not know.
+    var approvedBy: [String]?
 
     var card: Card {
         Card(id: key, title: title, text: text, light: light, actions: [])

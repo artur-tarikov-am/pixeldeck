@@ -34,7 +34,7 @@ While something is going on, the closed notch grows wings. The left one holds th
 
 - a card arrives,
 - an agent finishes, fails or waits for you (`Pixeldeck finished`),
-- your pull request is approved, fails CI or gets changes requested (`#412 Fix the build approved`),
+- someone approves your pull request (`#412 Fix the build approved by anna`), or it gets ready to merge, fails CI or gets changes requested,
 - someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 

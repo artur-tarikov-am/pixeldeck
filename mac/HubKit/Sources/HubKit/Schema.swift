@@ -111,6 +111,8 @@ public struct GithubItem: Codable, Sendable, Equatable {
     public var title: String
     public var text: String
     public var url: String
+    /// Who approved a pull request of the user. Missing on other rows and on rows saved before the hub read it.
+    public var approvedBy: [String]?
 }
 
 public enum IntegrationID: String, Codable, Sendable {

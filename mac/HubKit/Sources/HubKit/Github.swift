@@ -13,6 +13,8 @@ public struct PullRequest: Sendable {
     var author: String
     var checks: String?
     var reviewDecision: String?
+    /// People, not bots, whose latest review approves it.
+    var approvedBy: [String] = []
 }
 
 /// The newest post in a pull request or issue in which someone called the user by `@login`.
@@ -48,6 +50,12 @@ private struct GraphqlPullRequest: Decodable {
     struct Commit: Decodable { let statusCheckRollup: Rollup? }
     struct CommitNode: Decodable { let commit: Commit }
     struct Commits: Decodable { let nodes: [CommitNode] }
+    struct Review: Decodable {
+        let state: String
+        let author: GraphqlPost.Author?
+    }
+
+    struct Reviews: Decodable { let nodes: [Review] }
 
     let number: Int
     let title: String
@@ -56,6 +64,7 @@ private struct GraphqlPullRequest: Decodable {
     let author: Author?
     let repository: Repository
     let commits: Commits
+    let latestOpinionatedReviews: Reviews
 
     func pullRequest(role: PullRequest.Role) -> PullRequest {
         PullRequest(
@@ -66,7 +75,11 @@ private struct GraphqlPullRequest: Decodable {
             url: url,
             author: author?.login ?? "unknown",
             checks: commits.nodes.first?.commit.statusCheckRollup?.state,
-            reviewDecision: reviewDecision
+            reviewDecision: reviewDecision,
+            approvedBy: latestOpinionatedReviews.nodes.compactMap { review in
+                guard review.state == "APPROVED", let author = review.author, author.kind == "User" else { return nil }
+                return author.login
+            }
         )
     }
 }
@@ -206,6 +219,7 @@ public enum GithubCommands {
           author { login }
           repository { name }
           commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+          latestOpinionatedReviews(first: 20) { nodes { state author { kind: __typename login } } }
         }
         """
     /// How long a mention stays on the board; older ones are left to the GitHub inbox.
@@ -353,12 +367,10 @@ private func checksText(_ checks: String?) -> String {
     }
 }
 
-private func reviewText(_ decision: String?) -> String {
-    switch decision {
-    case "APPROVED": "approved"
-    case "CHANGES_REQUESTED": "changes requested"
-    default: "awaiting review"
-    }
+private func reviewText(_ pullRequest: PullRequest) -> String {
+    if pullRequest.reviewDecision == "CHANGES_REQUESTED" { return "changes requested" }
+    if !pullRequest.approvedBy.isEmpty { return "approved by \(pullRequest.approvedBy.joined(separator: ", "))" }
+    return pullRequest.reviewDecision == "APPROVED" ? "approved" : "awaiting review"
 }
 
 private func authoredLight(_ pullRequest: PullRequest) -> Light {
@@ -378,9 +390,10 @@ private func item(for pullRequest: PullRequest) -> GithubItem {
         light: isMine ? authoredLight(pullRequest) : .review,
         title: String("#\(pullRequest.number) \(pullRequest.title)".prefix(120)),
         text: isMine
-            ? "\(checksText(pullRequest.checks)), \(reviewText(pullRequest.reviewDecision))"
+            ? "\(checksText(pullRequest.checks)), \(reviewText(pullRequest))"
             : "review for \(pullRequest.author)",
-        url: pullRequest.url
+        url: pullRequest.url,
+        approvedBy: isMine ? pullRequest.approvedBy : nil
     )
 }
 

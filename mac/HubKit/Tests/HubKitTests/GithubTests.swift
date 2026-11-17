@@ -110,6 +110,17 @@ private final class Fixture: @unchecked Sendable {
         #expect(await fixture.lights == [expected])
     }
 
+    @Test func namesWhoApprovedOnlyOnPullRequestsOfTheUser() async throws {
+        let fixture = try Fixture()
+        var approved = changed(checks: "SUCCESS", decision: "APPROVED")
+        approved.approvedBy = ["anna", "boris"]
+        fixture.pullRequests = [approved, reviewRequest()]
+        await fixture.github.sync()
+        let items = await fixture.store.state.github
+        #expect(items.map(\.text) == ["CI ok, approved by anna, boris", "review for colleague"])
+        #expect(items.map(\.approvedBy) == [["anna", "boris"], nil])
+    }
+
     @Test func groupsReviewRequestsSeparately() async throws {
         let fixture = try Fixture()
         fixture.pullRequests = [reviewRequest()]

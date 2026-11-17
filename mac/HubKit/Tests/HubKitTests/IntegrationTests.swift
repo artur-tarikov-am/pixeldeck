@@ -139,4 +139,15 @@ private func setGithub(_ test: TestHub, isOn: Bool) async throws -> Int {
         #expect(await reopened.state.cards.map(\.title) == ["kept"])
         #expect(await reopened.state.integrations == Integration.catalog)
     }
+
+    @Test func aStateFileFromBeforeApprovalsKeepsItsPullRequests() async throws {
+        let test = try await TestHub()
+        defer { Task { await test.stop() } }
+        await test.store.setGithub([GithubItem(key: "k", group: .mine, light: .idle, title: "t", text: "", url: "")])
+        let url = test.dataDirectory.appending(path: "state.json")
+        #expect(!String(decoding: try Data(contentsOf: url), as: UTF8.self).contains("approvedBy"))
+
+        let reopened = Store(dataDirectory: test.dataDirectory, log: test.hub.log, isSetUp: { _ in true })
+        #expect(await reopened.state.github.map(\.key) == ["k"])
+    }
 }
