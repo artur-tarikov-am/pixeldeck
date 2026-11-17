@@ -38,6 +38,8 @@ While something is going on, the closed notch grows wings. The left one holds th
 - someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
+If the wings show the same for three minutes, the character walks into the notch and the wings fold. It walks back out as soon as something changes.
+
 <table>
   <tr>
     <td width="50%" valign="top"><img src="docs/images/orca.png" alt="List of Orca chats"></td>

@@ -3,7 +3,8 @@ import Foundation
 
 /// The closed notch: the character on the left wing and the agents at work on the right one,
 /// or the sleeping critter there while the hub is away, then a meeting about to start.
-/// No wings while all is quiet. For a few seconds after something happens a line of news hangs under it.
+/// No wings while all is quiet, or once the character has gone into the notch, see `CharacterPresence`.
+/// For a few seconds after something happens a line of news hangs under it.
 @MainActor
 final class NotchBar {
     struct Picture {
@@ -32,6 +33,7 @@ final class NotchBar {
     private let scene: Scene
     private let news: NotchNews
     private let font = PixelFont.shared
+    private let presence = CharacterPresence()
     /// Reconnecting lasts a moment every few seconds while the hub is away, so it does not fold the wings.
     private var isHubAway = false
 
@@ -51,12 +53,16 @@ final class NotchBar {
         news.hear(scene.meetings, at: now)
         let item = news.current(at: now)
         let meeting = comingMeeting(at: now)
+        let counted = lights.filter(Self.countedLights.contains)
+        let mood = scene.mood(deck: deck, connection: isHubAway ? .offline : .online, arrived: arrived)
         let isQuiet = item == nil && meeting == nil && !isHubAway && lights.isEmpty && deck.cards.isEmpty
             && deck.status.mood == "idle" && !arrived
-        guard !isQuiet else { return Picture(image: nil, wing: 0, drop: 0) }
+        let look = CharacterPresence.Look(mood: mood, counts: Dictionary(counted.map { ($0, 1) }, uniquingKeysWith: +))
+        presence.see(isQuiet ? nil : look, isEventful: item != nil || meeting != nil, at: now)
+        let away = presence.distance(at: now)
+        guard away < 1 else { return Picture(image: nil, wing: 0, drop: 0) }
 
         let time = now.timeIntervalSinceReferenceDate
-        let counted = lights.filter(Self.countedLights.contains)
         let critter = isHubAway ? SpriteLibrary.named("critter_offline") : nil
         let agentsWidth = critter?.width ?? scene.countsWidth(counted)
         let meetingWidth = meeting.map { Light.size + Self.lightGap + font.width(of: $0.text) } ?? 0
@@ -72,10 +78,15 @@ final class NotchBar {
         let dropRows = item == nil ? 0 : Self.newsRows
         var buffer = Framebuffer(width: notchCells + 2 * wing, height: notchRows + dropRows)
 
-        let mood = scene.mood(deck: deck, connection: isHubAway ? .offline : .online, arrived: arrived)
-        SpriteLibrary.named(mood)?.draw(
-            at: time, x: Self.inset, y: (notchRows - Self.characterSide) / 2, into: &buffer
-        )
+        let characterY = (notchRows - Self.characterSide) / 2
+        if away > 0 {
+            let x = Self.inset + Int((Double(wing - Self.inset) * away).rounded())
+            SpriteLibrary.named("walk")?.draw(at: time, x: x, y: characterY, into: &buffer)
+        } else {
+            SpriteLibrary.named(mood)?.draw(at: time, x: Self.inset, y: characterY, into: &buffer)
+        }
+        // The camera housing hides the character as it walks in; on a screen without one the stand-in has to.
+        buffer.fill(Box(x: wing, y: 0, width: notchCells, height: notchRows), Palette.black)
         let rightX = buffer.width - Self.inset - rightWidth
         let textY = (notchRows - font.glyphHeight) / 2
         if let critter {
