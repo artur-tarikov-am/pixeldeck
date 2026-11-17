@@ -31,9 +31,12 @@ struct SettingsView: View {
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
     )
 
+    private static let leaveChoices = [0, 1, 3, 5, 10, 30]
+
     let controller: HubController
     @Bindable var calendar: MeetingCalendar
     @State private var claude = ClaudeConnection.notAsked
+    @AppStorage(CharacterPresence.minutesKey) private var leavesAfter = CharacterPresence.defaultMinutes
 
     var body: some View {
         Form {
@@ -72,6 +75,17 @@ struct SettingsView: View {
                         Text("Meetings in the notch")
                         Text("Pixeldeck has no access to the Calendar. Allow it in Privacy & Security → Calendars.")
                     }
+                }
+            }
+
+            Section("Notch") {
+                Picker(selection: $leavesAfter) {
+                    ForEach(Self.leaveChoices, id: \.self) { minutes in
+                        Text(minutes == 0 ? "Never" : "After \(minutes) min").tag(minutes)
+                    }
+                } label: {
+                    Text("Character walks into the notch")
+                    Text("When the wings show the same for this long. Anything new brings it back.")
                 }
             }
 
