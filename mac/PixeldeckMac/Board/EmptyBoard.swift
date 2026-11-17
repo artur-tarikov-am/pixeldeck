@@ -2,7 +2,7 @@ import Foundation
 
 /// What the board shows with every integration off and no cards: the character kills time.
 struct EmptyBoard {
-    private struct Act {
+    private struct Act: Timed {
         var sprite: String
         var seconds: TimeInterval
         var caption: String
@@ -40,7 +40,7 @@ struct EmptyBoard {
         Act(sprite: "sleep", seconds: 8, caption: "zzz"),
         Act(sprite: "alert", seconds: 0.8, caption: "!"),
     ]
-    private static let cycle = acts.reduce(0) { $0 + $1.seconds }
+    private static let cycle = acts.duration
 
     private static let scale = 3
     private static let spriteSide = 16 * scale
@@ -51,14 +51,8 @@ struct EmptyBoard {
     private let font = PixelFont.shared
 
     func draw(time: TimeInterval, top: Int, into buffer: inout Framebuffer) {
-        var elapsed = time.truncatingRemainder(dividingBy: Self.cycle)
-        for act in Self.acts {
-            if elapsed < act.seconds {
-                perform(act, elapsed: elapsed, top: top, into: &buffer)
-                return
-            }
-            elapsed -= act.seconds
-        }
+        guard let (act, elapsed) = Self.acts.act(at: time.truncatingRemainder(dividingBy: Self.cycle)) else { return }
+        perform(act, elapsed: elapsed, top: top, into: &buffer)
     }
 
     private func perform(_ act: Act, elapsed: TimeInterval, top: Int, into buffer: inout Framebuffer) {

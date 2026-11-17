@@ -4,6 +4,7 @@
 Usage: make_sprites.py mac/PixeldeckMac/Board/Resources/sprites.json
 """
 import json
+import math
 import sys
 
 SIZE = 16
@@ -99,6 +100,11 @@ def frame(eyes="open", legs="stand", lift=0, shift=0, antenna="y", arms=None, ex
         canvas.paint(15 + shift, top + 1, ["s"])
         canvas.paint(1 + shift, top + 2, ["s"])
         canvas.paint(shift, top + 1, ["s"])
+    elif arms == "up":
+        canvas.paint(13 + shift, top + 1, ["s"])
+        canvas.paint(14 + shift, top - 1, ["s", "s"])
+        canvas.paint(2 + shift, top + 1, ["s"])
+        canvas.paint(1 + shift, top - 1, ["s", "s"])
     for x, y, pixels in extras:
         canvas.paint(x, y, pixels)
     return canvas.text()
@@ -347,6 +353,94 @@ def lever(knob, is_on):
     return [row[::-1] for row in rows] if is_on else rows
 
 
+# For the skits on the wing beside the notch, as the character leaves and comes back.
+ROTOR_BLADES = [(4, 1, ["wwwwwww"]), (6, 1, ["www"])]
+OPEN_MOUTH = ["ee"]
+DUST = ["t"]
+BALL_CENTER = (7.5, 9.5)
+BALL_RADIUS = 6
+SPLAT = [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....yss.........",
+    "...oooooooooo...",
+    ".oohhoooooooooo.",
+    "ooooeeooooeeoooo",
+    "oooooooooooooooo",
+    ".ssssssssssssss.",
+]
+
+
+def frame_of(rows, extras):
+    canvas = Canvas()
+    canvas.paint(0, 0, rows)
+    for x, y, pixels in extras:
+        canvas.paint(x, y, pixels)
+    return canvas.text()
+
+
+def smoke(puffs, over=None):
+    """White discs shaded grey along their lower right edge, drawn over `over` if given."""
+    canvas = Canvas()
+    if over:
+        canvas.rows = [list(row) for row in over]
+    inside = {
+        (x, y)
+        for cx, cy, radius in puffs
+        for y in range(SIZE)
+        for x in range(SIZE)
+        if (x - cx) ** 2 + (y - cy) ** 2 <= radius * radius + radius
+    }
+    for x, y in inside:
+        canvas.rows[y][x] = "w" if (x + 1, y + 1) in inside else "a"
+    return canvas.text()
+
+
+def ball(turn):
+    """Curled up: the antenna goes round the rim an eighth of a turn clockwise each step."""
+    canvas = Canvas()
+    cx, cy = BALL_CENTER
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= BALL_RADIUS ** 2:
+                rim = (x - cx) ** 2 + (y + 1 - cy) ** 2 > BALL_RADIUS ** 2
+                canvas.rows[y][x] = "s" if rim and y > cy else "o"
+    canvas.paint(5, 6, ["hh", "h"])
+    angle = turn * math.pi / 4
+    # The stem on the rim, the tip just outside it.
+    for reach, pixel in [(BALL_RADIUS - 0.5, "s"), (BALL_RADIUS + 0.5, "y")]:
+        x = math.floor(cx + reach * math.sin(angle) + 0.5)
+        y = math.floor(cy - reach * math.cos(angle) + 0.5)
+        canvas.paint(x, y, [pixel])
+    return canvas.text()
+
+
+def dizzy(step):
+    """Two stars circle the antenna while the character sways."""
+    angle = step * math.pi / 2
+    stars = [
+        (round(7.5 + 6 * math.cos(angle + half)), round(1 + math.sin(angle + half)), ["y"])
+        for half in (0, math.pi)
+    ]
+    return frame(eyes="cross", shift=[0, 1, 0, -1][step], extras=stars)
+
+
+def panting(step):
+    lift = step % 2
+    drop = [(1, 5), (0, 3), (14, 5), (15, 3)][step]
+    return frame(
+        eyes="shut" if lift else "half", lift=lift, extras=[(7, 11 - lift, OPEN_MOUTH), (*drop, ["b"])]
+    )
+
+
 def sprites():
     return {
         "idle": {
@@ -466,6 +560,74 @@ def sprites():
         "tumbleweed": {"fps": 6, "frames": tumbleweed_frames()},
         "lever_off": {"fps": 1, "frames": [lever("r", is_on=False)]},
         "lever_on": {"fps": 1, "frames": [lever("g", is_on=True)]},
+        "moonwalk": {
+            "fps": 6,
+            "frames": [frame(eyes="left", legs=legs) for legs in ["step_left", "stand", "step_right", "stand"]],
+        },
+        "rotor": {"fps": 12, "frames": [frame(eyes="up", extras=[blade]) for blade in ROTOR_BLADES]},
+        "bye": {
+            "fps": 4,
+            "frames": [frame(eyes="happy", arms="wave"), frame(eyes="happy", arms="wave_low")],
+        },
+        "poof": {
+            "fps": 10,
+            "frames": [
+                smoke([(3, 14, 1), (12, 14, 1), (7.5, 15, 1.5)], over=frame(eyes="wide")),
+                smoke([(7.5, 11, 4), (4, 8, 3), (11, 8, 3)], over=frame(eyes="wide")),
+                smoke([(7.5, 9, 5), (3, 6, 3), (12, 6, 3), (7.5, 4, 2.5)]),
+                smoke([(3, 5, 2.5), (12, 4, 2.5), (4, 12, 2.5), (11, 12, 2.5), (7.5, 8, 2)]),
+                smoke([(2, 3, 1.5), (13, 2, 1.5), (3, 13, 1.5), (13, 13, 1.5), (8, 8, 1)]),
+                smoke([(1, 1, 0), (14, 1, 0), (2, 14, 0), (14, 14, 0), (8, 7, 0)]),
+            ],
+        },
+        "ball": {"fps": 8, "frames": [ball(turn) for turn in range(8)]},
+        "peek": {"fps": 4, "frames": [frame(eyes=eyes) for eyes in ["left", "left", "shut", "left", "left", "left"]]},
+        "hang": {
+            "fps": 8,
+            "frames": [
+                frame(eyes="wide", legs="step_left", extras=[(13, 2, ["b"])]),
+                frame(eyes="wide", legs="step_right", extras=[(13, 3, ["b"])]),
+            ],
+        },
+        "fall": {
+            "fps": 8,
+            "frames": [frame(eyes="wide", arms="up"), frame(eyes="wide", arms="up", legs="tucked")],
+        },
+        "splat": {
+            "fps": 4,
+            "frames": [
+                frame_of(SPLAT, extras=[(x, y, DUST) for x, y in [(0, 11), (15, 11), (1, 10), (14, 10)]]),
+                SPLAT,
+            ],
+        },
+        "dizzy": {"fps": 6, "frames": [dizzy(step) for step in range(4)]},
+        "windup": {
+            "fps": 10,
+            "frames": [
+                frame(eyes="right", antenna="r", legs="step_left", extras=[(1, 14, DUST)]),
+                frame(eyes="right", antenna="y", extras=[(0, 13, DUST)]),
+            ],
+        },
+        "dash": {
+            "fps": 12,
+            "frames": [
+                frame(eyes="right", legs="tucked", lift=1, extras=[(0, 7, ["ww"]), (0, 12, ["ww"])]),
+                frame(eyes="right", legs="tucked", lift=1, extras=[(0, 9, ["ww"]), (1, 11, ["w"])]),
+            ],
+        },
+        "run": {
+            "fps": 12,
+            "frames": [
+                frame(eyes="left", legs=legs, lift=lift, extras=[(*dust, DUST)])
+                for legs, lift, dust in [
+                    ("step_left", 1, (14, 15)),
+                    ("stand", 0, (15, 14)),
+                    ("step_right", 1, (14, 15)),
+                    ("stand", 0, (15, 13)),
+                ]
+            ],
+        },
+        "pant": {"fps": 6, "frames": [panting(step) for step in range(4)]},
         "critter_online": {
             "fps": 4,
             "frames": [critter()] * 5 + [critter(eyes="shut")] + [critter()] * 4 + [

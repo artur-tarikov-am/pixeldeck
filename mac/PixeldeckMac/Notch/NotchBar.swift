@@ -3,7 +3,7 @@ import Foundation
 
 /// The closed notch: the character on the left wing and the agents at work on the right one,
 /// or the sleeping critter there while the hub is away, then a meeting about to start.
-/// No wings while all is quiet, or once the character has gone into the notch, see `CharacterPresence`.
+/// No wings while all is quiet, or once the character has left, see `CharacterPresence`.
 /// For a few seconds after something happens a line of news hangs under it.
 @MainActor
 final class NotchBar {
@@ -60,8 +60,8 @@ final class NotchBar {
             && deck.status.mood == "idle" && !arrived
         let look = CharacterPresence.Look(mood: mood, counts: Dictionary(counted.map { ($0, 1) }, uniquingKeysWith: +))
         presence.see(isQuiet ? nil : look, isEventful: item != nil || meeting != nil, at: now)
-        let away = presence.distance(at: now)
-        guard away < 1 else { return Picture(image: nil, wing: 0, drop: 0) }
+        let stage = presence.stage(at: now)
+        if case .away = stage { return Picture(image: nil, wing: 0, drop: 0) }
 
         let time = now.timeIntervalSinceReferenceDate
         let critter = isHubAway ? SpriteLibrary.named("critter_offline") : nil
@@ -79,15 +79,19 @@ final class NotchBar {
         let dropRows = item == nil ? 0 : Self.newsRows
         var buffer = Framebuffer(width: notchCells + 2 * wing, height: notchRows + dropRows)
 
-        let characterY = (notchRows - Self.characterSide) / 2
-        if away > 0 {
-            let x = Self.inset + Int((Double(wing - Self.inset) * away).rounded())
-            SpriteLibrary.named("walk")?.draw(at: time, x: x, y: characterY, into: &buffer)
+        let leftWing = Skit.Wing(
+            x: Self.inset, y: (notchRows - Self.characterSide) / 2, notchX: wing, height: notchRows,
+            characterSide: Self.characterSide
+        )
+        if case let .playing(skit, elapsed) = stage {
+            skit.draw(at: elapsed, on: leftWing, into: &buffer)
         } else {
-            SpriteLibrary.named(mood)?.draw(at: time, x: Self.inset, y: characterY, into: &buffer)
+            SpriteLibrary.named(mood)?.draw(at: time, x: leftWing.x, y: leftWing.y, into: &buffer)
         }
-        // The camera housing hides the character as it walks in; on a screen without one the stand-in has to.
+        // The camera housing hides the character behind the notch; on a screen without one the stand-in has to.
         buffer.fill(Box(x: wing, y: 0, width: notchCells, height: notchRows), Palette.black)
+        // Nor does the character drop into the line of news on its way below the wing.
+        buffer.fill(Box(x: 0, y: notchRows, width: buffer.width, height: dropRows), Palette.black)
         let rightX = buffer.width - Self.inset - rightWidth
         let textY = (notchRows - font.glyphHeight) / 2
         if let critter {
