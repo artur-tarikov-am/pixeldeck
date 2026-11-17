@@ -28,8 +28,6 @@ final class CardFeed {
     /// Critically damped spring that brings an overscrolled feed back to its edge.
     private static let springStrength = 14.0
     private static let settledOverscroll = 0.25
-    /// How much of a drag past the end actually moves the feed.
-    private static let dragResistance = 0.5
     private static let physicsStep = 1.0 / 240
     private static let closeLabel = "close"
     private static let rowSettleRate = 20.0
@@ -79,8 +77,9 @@ final class CardFeed {
         return isCoasting
     }
 
+    /// The end of the list is a wall: there is nothing below it, so a short list does not move at all.
     func drag(to position: Double) {
-        scroll = min(position, maxScroll + max(position - maxScroll, 0) * Self.dragResistance)
+        scroll = min(position, maxScroll)
     }
 
     func release(velocity requested: Double) {
@@ -160,6 +159,11 @@ final class CardFeed {
         scroll += velocity * step
         if wasOutside, abs(overscroll) < Self.settledOverscroll, abs(velocity) < Self.stopSpeed {
             scroll -= overscroll
+            velocity = 0
+        }
+        // A flick stops at the wall; a list that got shorter under the finger still springs back to its end.
+        if scroll > maxScroll, velocity > 0 {
+            scroll = maxScroll
             velocity = 0
         }
     }
