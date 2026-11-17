@@ -31,12 +31,12 @@ struct SettingsView: View {
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
     )
 
-    private static let leaveChoices = [0, 1, 3, 5, 10, 30]
+    private static let leaveChoices = [0, 15, 30, 45, 60, 180, 300, 600, 1800]
 
     let controller: HubController
     @Bindable var calendar: MeetingCalendar
     @State private var claude = ClaudeConnection.notAsked
-    @AppStorage(CharacterPresence.minutesKey) private var leavesAfter = CharacterPresence.defaultMinutes
+    @AppStorage(CharacterPresence.secondsKey) private var leavesAfter = CharacterPresence.defaultSeconds
 
     var body: some View {
         Form {
@@ -80,11 +80,12 @@ struct SettingsView: View {
 
             Section("Notch") {
                 Picker(selection: $leavesAfter) {
-                    ForEach(Self.leaveChoices, id: \.self) { minutes in
-                        Text(minutes == 0 ? "Never" : "After \(minutes) min").tag(minutes)
+                    ForEach(Self.leaveChoices, id: \.self) { seconds in
+                        Text(seconds == 0 ? "Never" : "After \(Duration.seconds(seconds).formatted(.units(width: .abbreviated)))")
+                            .tag(seconds)
                     }
                 } label: {
-                    Text("Character walks into the notch")
+                    Text("Character leaves")
                     Text("When the wings show the same for this long. Anything new brings it back.")
                 }
             }

@@ -26,9 +26,9 @@ final class CharacterPresence {
         case away(since: Date)
     }
 
-    /// Minutes the wings may show the same before the character leaves, chosen in Settings; 0 keeps it on the wing.
-    static let minutesKey = "characterLeavesAfterMinutes"
-    static let defaultMinutes = 3
+    /// Seconds the wings may show the same before the character leaves, chosen in Settings; 0 keeps it on the wing.
+    static let secondsKey = "characterLeavesAfterSeconds"
+    static let defaultSeconds = 180
 
     private var look: Look?
     /// When the wings last changed or something happened on them.
@@ -93,8 +93,8 @@ final class CharacterPresence {
 
     /// When the character is due to leave. Read each time, so a new choice in Settings applies at once.
     private var departure: Date {
-        let minutes = UserDefaults.standard.object(forKey: Self.minutesKey) as? Int ?? Self.defaultMinutes
-        let bored = minutes > 0 ? activeAt.addingTimeInterval(TimeInterval(minutes * 60)) : .distantFuture
+        let seconds = UserDefaults.standard.object(forKey: Self.secondsKey) as? Int ?? Self.defaultSeconds
+        let bored = seconds > 0 ? activeAt.addingTimeInterval(TimeInterval(seconds)) : .distantFuture
         return min(quietSince ?? .distantFuture, bored)
     }
 }
