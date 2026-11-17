@@ -38,7 +38,7 @@ While something is going on, the closed notch grows wings. The left one holds th
 - someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
-If the wings show the same for three minutes, the character walks into the notch and the wings fold. It walks back out as soon as something changes. Settings → Notch changes the time or keeps the character on the wing.
+If the wings show the same for three minutes, the character walks into the notch and the wings fold. It walks back out as soon as something changes, or after you hover over the notch and the board closes. Settings → Notch changes the time or keeps the character on the wing.
 
 <table>
   <tr>

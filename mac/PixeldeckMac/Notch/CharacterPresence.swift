@@ -2,7 +2,7 @@ import Foundation
 
 /// The character stays on the wing while the closed notch has something new to show. Once the wings
 /// have shown the same for the time chosen in Settings, or have nothing left to show, it walks into the notch
-/// and the wings fold behind it. As soon as what they show changes, it walks back out.
+/// and the wings fold behind it. As soon as what they show changes, or someone has looked at the board, it walks back out.
 @MainActor
 final class CharacterPresence {
     /// What the wings tell about the board; any change of it brings the character back.
@@ -32,11 +32,16 @@ final class CharacterPresence {
         if look == nil {
             quietSince = quietSince ?? now
         } else if look != self.look || isEventful {
-            turnedBack = (now, distance(at: now))
-            activeAt = now
+            callBack(at: now)
             quietSince = nil
         }
         self.look = look
+    }
+
+    /// Brings the character back to the wing and starts its wait over. With nothing on the wings it stays in the notch.
+    func callBack(at now: Date) {
+        turnedBack = (now, distance(at: now))
+        activeAt = now
     }
 
     /// How far along its walk into the notch the character is: 0 on its place on the wing, 1 out of sight.

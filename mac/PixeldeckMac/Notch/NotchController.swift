@@ -21,6 +21,7 @@ final class NotchController {
     @ObservationIgnored private let gestures: DeckGestures
     @ObservationIgnored private let trackpad = TrackpadDrags()
     @ObservationIgnored private let news = NotchNews()
+    @ObservationIgnored private let presence = CharacterPresence()
     @ObservationIgnored private let panel = NotchPanel()
     @ObservationIgnored private var pendingChange: (isOpen: Bool, task: Task<Void, Never>)?
     @ObservationIgnored private var monitors: [Any] = []
@@ -36,7 +37,7 @@ final class NotchController {
         self.geometry = geometry
         let gestures = DeckGestures(model: model, scene: scene)
         self.gestures = gestures
-        let bar = NotchBar(scene: scene, news: news)
+        let bar = NotchBar(scene: scene, news: news, presence: presence)
         panel.contentView = FirstClickHostingView(rootView: NotchView(
             model: model, scene: scene, gestures: gestures, bar: bar, notch: self, hub: hub, calendar: calendar
         ))
@@ -110,7 +111,8 @@ final class NotchController {
             guard (try? await Task.sleep(for: wanted ? Self.openDelay : Self.closeDelay)) != nil else { return }
             pendingChange = nil
             isOpen = wanted
-            if wanted { news.clear() }
+            // Called back once the board closes, so the wait does not run out while someone reads it.
+            if wanted { news.clear() } else { presence.callBack(at: .now) }
         }
         pendingChange = (wanted, task)
     }

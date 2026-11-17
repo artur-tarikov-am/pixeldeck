@@ -33,13 +33,14 @@ final class NotchBar {
     private let scene: Scene
     private let news: NotchNews
     private let font = PixelFont.shared
-    private let presence = CharacterPresence()
+    private let presence: CharacterPresence
     /// Reconnecting lasts a moment every few seconds while the hub is away, so it does not fold the wings.
     private var isHubAway = false
 
-    init(scene: Scene, news: NotchNews) {
+    init(scene: Scene, news: NotchNews, presence: CharacterPresence) {
         self.scene = scene
         self.news = news
+        self.presence = presence
     }
 
     func render(deck: Deck, connection: Connection, lastArrival: Date?, now: Date, notch: NotchGeometry) -> Picture {
