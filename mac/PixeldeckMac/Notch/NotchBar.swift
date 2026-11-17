@@ -3,7 +3,8 @@ import Foundation
 
 /// The closed notch: the character on the left wing and the agents at work on the right one,
 /// or the sleeping critter there while the hub is away, then a meeting about to start.
-/// No wings while all is quiet, or once the character has left, see `CharacterPresence`.
+/// No wings while all is quiet. Once the character has left, see `CharacterPresence`, the right wing dims,
+/// and with nothing on it the wings fold.
 /// For a few seconds after something happens a line of news hangs under it.
 @MainActor
 final class NotchBar {
@@ -29,6 +30,9 @@ final class NotchBar {
     private static let meetingGap = 13
     /// The line of news widens the notch no further than the open board.
     private static let widestCells = Int((NotchLayout.openWidth - 2 * NotchLayout.closedEar) / Scene.feedPixel)
+    /// Share of its brightness the right wing keeps without the character: out of the way, yet readable.
+    private static let restingBrightness = 0.4
+    private static let dimmingTime: TimeInterval = 1
 
     private let scene: Scene
     private let news: NotchNews
@@ -61,7 +65,6 @@ final class NotchBar {
         let look = CharacterPresence.Look(mood: mood, counts: Dictionary(counted.map { ($0, 1) }, uniquingKeysWith: +))
         presence.see(isQuiet ? nil : look, isEventful: item != nil || meeting != nil, at: now)
         let stage = presence.stage(at: now)
-        if case .away = stage { return Picture(image: nil, wing: 0, drop: 0) }
 
         let time = now.timeIntervalSinceReferenceDate
         let critter = isHubAway ? SpriteLibrary.named("critter_offline") : nil
@@ -69,6 +72,7 @@ final class NotchBar {
         let meetingWidth = meeting.map { Light.size + Self.lightGap + font.width(of: $0.text) } ?? 0
         let meetingX = agentsWidth + (agentsWidth > 0 && meetingWidth > 0 ? Self.meetingGap : 0)
         let rightWidth = meetingX + meetingWidth
+        if case .away = stage, rightWidth == 0 { return Picture(image: nil, wing: 0, drop: 0) }
         let notchCells = Int((notch.width / Scene.feedPixel).rounded(.up))
         let notchRows = Int(notch.height / Scene.feedPixel)
         var wing = 2 * Self.inset + max(Self.characterSide, rightWidth)
@@ -83,10 +87,10 @@ final class NotchBar {
             x: Self.inset, y: (notchRows - Self.characterSide) / 2, notchX: wing, height: notchRows,
             characterSide: Self.characterSide
         )
-        if case let .playing(skit, elapsed) = stage {
-            skit.draw(at: elapsed, on: leftWing, into: &buffer)
-        } else {
-            SpriteLibrary.named(mood)?.draw(at: time, x: leftWing.x, y: leftWing.y, into: &buffer)
+        switch stage {
+        case .onWing: SpriteLibrary.named(mood)?.draw(at: time, x: leftWing.x, y: leftWing.y, into: &buffer)
+        case let .playing(skit, elapsed): skit.draw(at: elapsed, on: leftWing, into: &buffer)
+        case .away: break
         }
         // The camera housing hides the character behind the notch; on a screen without one the stand-in has to.
         buffer.fill(Box(x: wing, y: 0, width: notchCells, height: notchRows), Palette.black)
@@ -108,6 +112,10 @@ final class NotchBar {
             }
             meeting.light.draw(at: time, x: x, y: textY + 1, into: &buffer)
             font.draw(meeting.text, x: x + Light.size + Self.lightGap, y: textY, color: Palette.text, into: &buffer)
+        }
+        if case let .away(elapsed) = stage {
+            let dimming = (1 - Self.restingBrightness) * min(1, elapsed / Self.dimmingTime)
+            buffer.dim(Box(x: wing + notchCells, y: 0, width: wing, height: notchRows), keeping: 1 - dimming)
         }
         if let item {
             draw(item, y: notchRows + Self.newsTop, time: time, into: &buffer)

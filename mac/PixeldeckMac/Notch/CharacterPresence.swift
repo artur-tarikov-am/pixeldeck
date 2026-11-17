@@ -1,9 +1,8 @@
 import Foundation
 
 /// The character stays on the wing while the closed notch has something new to show. Once the wings
-/// have shown the same for the time chosen in Settings, or have nothing left to show, it leaves for the notch
-/// in one of its skits and the wings fold behind it. As soon as what they show changes, or someone has looked
-/// at the board, it comes back in another.
+/// have shown the same for the time chosen in Settings, or have nothing left to show, it leaves in one of its skits.
+/// As soon as what they show changes, or someone has looked at the board, it comes back in another.
 @MainActor
 final class CharacterPresence {
     /// What the wings tell about the board; any change of it brings the character back.
@@ -16,14 +15,15 @@ final class CharacterPresence {
     enum Stage {
         case onWing
         case playing(Skit, elapsed: TimeInterval)
-        case away
+        /// Out of sight for `elapsed` seconds.
+        case away(elapsed: TimeInterval)
     }
 
     private enum Turn {
         /// Plays the skit, then stays on the wing.
         case arriving(Skit, at: Date)
         case leaving(Skit, at: Date)
-        case away
+        case away(since: Date)
     }
 
     /// Minutes the wings may show the same before the character leaves, chosen in Settings; 0 keeps it on the wing.
@@ -35,7 +35,7 @@ final class CharacterPresence {
     private var activeAt = Date.distantPast
     /// The notch starts out with nothing on its wings.
     private var quietSince: Date? = .distantPast
-    private var turn = Turn.away
+    private var turn = Turn.away(since: .distantPast)
     private var arrivals = Shuffled(Skit.arrivals)
     private var departures = Shuffled(Skit.departures)
 
@@ -69,8 +69,8 @@ final class CharacterPresence {
     func stage(at now: Date) -> Stage {
         advance(to: now)
         switch turn {
-        case .away:
-            return .away
+        case let .away(since):
+            return .away(elapsed: now.timeIntervalSince(since))
         case let .leaving(skit, start):
             return .playing(skit, elapsed: now.timeIntervalSince(start))
         case let .arriving(skit, start):
@@ -85,8 +85,9 @@ final class CharacterPresence {
             let leaving = max(departure, start.addingTimeInterval(skit.duration))
             if now >= leaving { turn = .leaving(departures.next(), at: leaving) }
         }
-        if case let .leaving(skit, start) = turn, now >= start.addingTimeInterval(skit.duration) {
-            turn = .away
+        if case let .leaving(skit, start) = turn {
+            let gone = start.addingTimeInterval(skit.duration)
+            if now >= gone { turn = .away(since: gone) }
         }
     }
 

@@ -93,6 +93,15 @@ struct Framebuffer {
         }
     }
 
+    /// Darkens what is already drawn in `box`, keeping `share` of its brightness.
+    mutating func dim(_ box: Box, keeping share: Double) {
+        for y in box.y..<box.maxY where y >= 0 && y < height {
+            for x in box.x..<box.maxX where x >= 0 && x < width {
+                pixels[y * width + x] = dimmed(pixels[y * width + x], by: share)
+            }
+        }
+    }
+
     /// The cells at the ends of each row and those with nothing above or below them.
     mutating func stroke(_ box: Box, _ color: Pixel, radius: Int = 0) {
         for y in box.y..<box.maxY {
