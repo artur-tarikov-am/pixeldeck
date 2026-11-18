@@ -22,6 +22,8 @@ struct Deck: Decodable {
     var showsClaude: Bool { shows("claude") && (!showsOrca || !claude.isEmpty) }
     var showsGithub: Bool { shows("github") }
     var isBlank: Bool { !showsOrca && !showsClaude && !showsGithub && cards.isEmpty }
+    /// The cards that are not notifications.
+    var plainCards: [Card] { cards.filter { !$0.isNotification } }
 
     /// Until the hub answers nothing is known, and the tiles are what shows the connection.
     private func shows(_ id: String) -> Bool {
@@ -101,17 +103,29 @@ struct Card: Decodable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, text, note, sprite, light, actions
+        case id, source, title, text, note, sprite, light, actions, createdAt
     }
 
+    /// The hub writes the time in UTC without saying so.
+    private static let hubTime = Date.ISO8601FormatStyle().year().month().day().time(includingFractionalSeconds: true)
+
     var id: String
+    /// Set by the script or agent that sent the card as a notification.
+    var source: String?
     var title: String
     var text: String?
     var note: String?
     var sprite: SpriteReference?
     var light: Light?
     var actions: [CardAction]
+    var createdAt: String?
     var look = Look.card
+
+    var isNotification: Bool { source != nil }
+
+    var createdDate: Date? {
+        createdAt.flatMap { try? Date($0, strategy: Self.hubTime) }
+    }
 }
 
 struct CardAction: Decodable {

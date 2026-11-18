@@ -2,7 +2,7 @@ let mcpToolsJSON = #"""
 [
   {
     "name": "show_card",
-    "description": "Show a card on the pixel board in the notch of the Mac. Each action has a label and exactly one of: url (opens in the browser on the Mac), run (name of an action from the hub config, with optional args), reply. A card with the same key replaces the previous one.",
+    "description": "Show a card on the pixel board in the notch of the Mac. Each action has a label and exactly one of: url (opens in the browser on the Mac), run (name of an action from the hub config, with optional args), reply. A card with the same key replaces the previous one. A card with a source is a notification: it goes with the other notifications on the board, under that name.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "type": "object",
@@ -10,6 +10,11 @@ let mcpToolsJSON = #"""
         "key": {
           "type": "string",
           "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
         },
         "title": {
           "type": "string",

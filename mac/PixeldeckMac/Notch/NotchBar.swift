@@ -60,7 +60,7 @@ final class NotchBar {
         let meeting = comingMeeting(at: now)
         let counted = lights.filter(Self.countedLights.contains)
         let mood = scene.mood(deck: deck, connection: isHubAway ? .offline : .online, arrived: arrived)
-        let isQuiet = item == nil && meeting == nil && !isHubAway && lights.isEmpty && deck.cards.isEmpty
+        let isQuiet = item == nil && meeting == nil && !isHubAway && lights.isEmpty && deck.plainCards.isEmpty
             && deck.status.mood == "idle" && !arrived
         let look = CharacterPresence.Look(mood: mood, counts: Dictionary(counted.map { ($0, 1) }, uniquingKeysWith: +))
         presence.see(isQuiet ? nil : look, isEventful: item != nil || meeting != nil, at: now)

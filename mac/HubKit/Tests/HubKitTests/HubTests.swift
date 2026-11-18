@@ -35,6 +35,13 @@ private let actionsJSON = #"""
         #expect(await test.store.state.cards.map(\.title) == ["new"])
     }
 
+    @Test func keepsTheSourceOfANotification() async throws {
+        let test = try await TestHub()
+        defer { Task { await test.stop() } }
+        let id = try await test.createCard(#"{"key":"tup","source":"TUP","title":"TUP check passed"}"#)
+        #expect(await test.store.card(id)?.source == "TUP")
+    }
+
     @Test func rejectsInlineSpriteFramesOfDifferentSizes() async throws {
         let test = try await TestHub()
         defer { Task { await test.stop() } }
@@ -48,6 +55,7 @@ private let actionsJSON = #"""
         "{}",
         #"{"title":""}"#,
         #"{"title":"x","extra":1}"#,
+        #"{"title":"x","source":""}"#,
         #"{"title":"x","actions":[{"label":"","reply":"y"}]}"#,
         #"{"title":"x","actions":[{"label":"a","url":"no scheme"}]}"#,
     ])

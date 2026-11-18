@@ -65,6 +65,8 @@ public struct CardAction: Codable, Sendable, Equatable {
 public struct Card: Codable, Sendable, Equatable {
     public var id: String
     public var key: String?
+    /// Who notifies. A card with a source is a notification and goes with the other notifications on the board.
+    public var source: String?
     public var title: String
     public var text: String?
     public var sprite: SpriteReference?

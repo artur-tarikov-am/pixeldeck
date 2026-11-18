@@ -236,6 +236,7 @@ final class Scene {
                 history.entries.compactMap { entry in entry.link.map { (entry.id, $0) } },
                 uniquingKeysWith: { first, _ in first }
             )
+            let keptIDs = Set(history.entries.map(\.id))
             feedTargets = feed.draw(
                 feedCards,
                 in: Box(
@@ -258,7 +259,7 @@ final class Scene {
                     switch screen {
                     case .orca, .claude, .meetings: nil
                     case .github: .mute(card)
-                    case .board, .catalog: Self.boardDismissTarget(card)
+                    case .board, .catalog: Self.boardDismissTarget(card, isKept: keptIDs.contains(card.id))
                     }
                 },
                 isPinned: { pinned.contains($0.id) },
@@ -318,7 +319,7 @@ final class Scene {
                                   now: now, time: time, top: contentTop, into: &buffer)
             boardTargets = tiles.targets
             feedRow = tiles.nextRow
-            feedCards = deck.cards + keptNews(at: now)
+            feedCards = deck.plainCards + notificationRows(deck: deck, at: now)
             contentRows = isBlank(deck, at: now) ? nil : tiles.nextRow - Self.tileGap
         case .orca:
             boardTargets = backTarget(boardWidth: buffer.width, headerRows: contentTop)
@@ -435,17 +436,42 @@ final class Scene {
         deck.isBlank && meetingsLeft(at: now).isEmpty && history.entries.isEmpty
     }
 
-    // MARK: Kept notifications
+    // MARK: Notifications
 
-    /// Under their label, newest first, after the cards from the hub.
-    private func keptNews(at now: Date) -> [Card] {
-        guard !history.entries.isEmpty else { return [] }
-        let heading = Card(id: Self.newsHeadingID, title: "NOTIFICATIONS", actions: [], look: .heading)
-        return [heading] + history.entries.map { entry in
-            Card(
+    /// Under their label after the other cards, newest first: the kept news of the integrations
+    /// and the cards that scripts and agents sent as notifications.
+    private func notificationRows(deck: Deck, at now: Date) -> [Card] {
+        let kept = history.entries.map { entry in
+            let row = Card(
                 id: entry.id, title: entry.text, light: entry.light, actions: [],
                 look: .news(source: entry.source.title, when: newsTime(entry.date, now: now))
             )
+            return (date: entry.date, row: row)
+        }
+        let sent = deck.cards.compactMap { card in
+            card.source.map { source in
+                let date = card.createdDate ?? now
+                var row = card
+                row.light = card.sprite?.name.flatMap(Self.light(ofSprite:))
+                row.sprite = nil
+                row.look = .news(source: source.uppercased(), when: newsTime(date, now: now))
+                return (date: date, row: row)
+            }
+        }
+        let rows = (kept + sent).sorted { $0.date > $1.date }.map(\.row)
+        guard !rows.isEmpty else { return [] }
+        return [Card(id: Self.newsHeadingID, title: "NOTIFICATIONS", actions: [], look: .heading)] + rows
+    }
+
+    /// A notification shows a light like the news of the integrations, not the character it was sent with.
+    private static func light(ofSprite name: String) -> Light? {
+        switch name {
+        case "done": .done
+        case "error": .failed
+        case "waiting", "alert": .waiting
+        case "thinking": .running
+        case "idle", "walk", "sleep": .idle
+        default: nil
         }
     }
 
@@ -454,11 +480,11 @@ final class Scene {
         Calendar.current.isDate(date, inSameDayAs: now) ? clock.string(from: date) : day.string(from: date)
     }
 
-    private static func boardDismissTarget(_ card: Card) -> Target {
+    /// A kept news lives in this app, a card in the hub.
+    private static func boardDismissTarget(_ card: Card, isKept: Bool) -> Target {
         switch card.look {
-        case .card: .dismiss(card)
-        case .news: .forgetNews(id: card.id)
         case .heading: .clearNews
+        case .card, .news: isKept ? .forgetNews(id: card.id) : .dismiss(card)
         }
     }
 
@@ -556,7 +582,7 @@ final class Scene {
         guard connection == .online else { return "sleep" }
         if arrived { return "alert" }
         if deck.status.mood != "idle" { return deck.status.mood }
-        return deck.cards.contains { $0.sprite?.name == "waiting" } ? "waiting" : "idle"
+        return deck.plainCards.contains { $0.sprite?.name == "waiting" } ? "waiting" : "idle"
     }
 
     /// Nothing to say while the counts speak for themselves.

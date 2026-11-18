@@ -68,6 +68,7 @@ public actor Store {
         let card = Card(
             id: previous?.id ?? UUID().uuidString.lowercased(),
             key: input.key,
+            source: input.source,
             title: input.title,
             text: input.text,
             sprite: input.sprite,

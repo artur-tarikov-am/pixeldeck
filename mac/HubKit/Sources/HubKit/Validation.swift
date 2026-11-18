@@ -112,19 +112,21 @@ private struct SpriteInput: Decodable {
 
 struct CardInput: Decodable {
     var key: String?
+    var source: String?
     var title: String
     var text: String?
     var sprite: SpriteReference?
     var actions: [ActionInput]
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
-        case key, title, text, sprite, actions
+        case key, source, title, text, sprite, actions
     }
 
     init(from decoder: Decoder) throws {
         try decoder.rejectUnknownKeys(besides: CodingKeys.self)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         key = try container.decodeIfPresent(String.self, forKey: .key)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
         title = try container.decode(String.self, forKey: .title)
         text = try container.decodeIfPresent(String.self, forKey: .text)
         actions = try container.decodeIfPresent([ActionInput].self, forKey: .actions) ?? []
@@ -137,6 +139,7 @@ struct CardInput: Decodable {
         }
 
         if let key { try requireLength(key, "key", 1...unlimited) }
+        if let source { try requireLength(source, "source", 1...20) }
         try requireLength(title, "title", 1...120)
         if let text { try requireLength(text, "text", 0...600) }
         try require(actions.count <= 4, "a card has at most 4 actions")

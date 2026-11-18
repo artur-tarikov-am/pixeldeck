@@ -38,7 +38,7 @@ While something is going on, the closed notch grows wings. The left one holds th
 - someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
-Settings has a Notifications choice for each integration and for meetings: Off, Show (the line only) or Show and keep. Kept notifications also land on the board under the cards, as outlined rows with a bell, the tile they came from and the time. A click opens the pull request, comment, Orca chat or call; × removes the row and `clear all` removes them all. The board keeps the latest 50.
+Settings has a Notifications choice for each integration and for meetings: Off, Show (the line only) or Show and keep. Kept notifications also land on the board under the cards, as outlined rows with a bell, the tile they came from and the time. Scripts and agents send their own notifications as cards with a `source`, see [Cards](#cards); those always stay there. A click opens the pull request, comment, Orca chat or call; × removes the row and `clear all` removes them all. The board keeps the latest 50.
 
 If the wings show the same for three minutes, the character leaves and the counts on the right dim, still readable; with nothing to count the wings fold. It moonwalks into the notch, flies off on its antenna, vanishes in a puff of smoke, or takes one of four other exits. It comes back its own way, one of six, as soon as something changes, or after you hover over the notch and the board closes. Settings → Notch changes the time, from 15 seconds to half an hour, or keeps the character on the wing.
 
@@ -96,7 +96,7 @@ There is no menu bar icon. Right-click the notch for the menu with the hub statu
 
 ## Tiles
 
-Each tile has a coloured light and a count per state. The feed under the tiles holds cards from scripts and agents, then the kept notifications. While the hub does not answer, the top tile says `waiting for hub`, the character and the octopus sleep, and a grey critter sits on the right wing of the closed notch.
+Each tile has a coloured light and a count per state. The feed under the tiles holds cards from scripts and agents, then the notifications. While the hub does not answer, the top tile says `waiting for hub`, the character and the octopus sleep, and a grey critter sits on the right wing of the closed notch.
 
 | Light | Agent | My pull request | Meeting |
 | --- | --- | --- | --- |
@@ -139,6 +139,7 @@ The hub takes requests only from this Mac and refuses those from browsers.
     }'
 
 - `key` is optional. A card with the same key replaces the previous one.
+- `source` makes the card a notification: it goes with the other notifications on the board, under this name of up to 20 characters, with a light in place of the sprite. A card without it stays above them.
 - `sprite` sets the picture and the border colour: `idle`, `walk`, `thinking`, `waiting`, `done`, `error`, `alert`, `sleep`. A custom one is up to 32×32: `{"palette": {"a": "#ff0000"}, "frames": [["a.a", ".a."]], "fps": 4}`.
 - A card has up to four actions. `url` opens in the browser, `run` starts an action from the config, `reply` answers whoever is waiting and removes the card.
 
