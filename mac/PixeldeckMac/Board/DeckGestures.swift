@@ -193,13 +193,13 @@ final class DeckGestures {
         guard dragAxis == nil,
               max(abs(translation.width), abs(translation.height)) >= Self.axisLockDistance
         else { return }
-        if abs(translation.width) > abs(translation.height), let chat = scene.swipeableChat(
+        if abs(translation.width) > abs(translation.height), let row = scene.swipeableRow(
             atX: drag.startLocation.x, y: drag.startLocation.y, dragWidth: translation.width
         ) {
             dragAxis = .horizontal
             isSwipingRow = true
             scene.feed.scroll = scrollAtStart
-            scene.feed.grabRow(chat)
+            scene.feed.grabRow(row)
             return
         }
         _ = scene.feed.coverRow()
@@ -213,36 +213,41 @@ final class DeckGestures {
 
     private func follow(rowDrag distance: CGFloat) {
         let feed = scene.feed
-        let wasPastCloseLine = feed.isRowPastCloseLine
+        let wasPastPressLine = feed.isRowPastPressLine
         feed.dragRow(by: distance / Scene.feedPixel)
-        if feed.isRowPastCloseLine != wasPastCloseLine, let chat = feed.swipedRow?.key, closesBySwipe(chat) {
+        if feed.isRowPastPressLine != wasPastPressLine, feed.swipedButton?.takesLongSwipe == true {
             Feedback.medium.play()
         }
     }
 
     private func finishRowSwipe(predictedEnd: CGFloat) {
         let feed = scene.feed
-        if feed.isRowPastCloseLine, let chat = feed.swipedRow?.key, closesBySwipe(chat) {
-            close(chat: chat)
+        if feed.isRowPastPressLine, let button = feed.swipedButton, button.takesLongSwipe {
+            press(button)
         } else {
             feed.settleRow(heading: predictedEnd / Scene.feedPixel)
         }
         coast(velocity: 0)
     }
 
-    /// A finished chat goes with one long swipe; stopping an agent at work takes a tap on the button.
-    private func closesBySwipe(_ chat: String) -> Bool {
-        model.deck.orca.first { $0.id == chat }?.isAtWork == false
-    }
-
-    private func close(chat: String) {
+    private func press(_ button: RowButton) {
         Feedback.medium.play()
         scene.feed.dropRow()
-        scene.closingChats.insert(chat)
+        switch button {
+        case .closeChat(let key, _): hide(key) { await $0.closeChat(key: key) }
+        case .dismiss(let card): hide(card.id) { await $0.dismiss(card: card) }
+        case .mute(let card): hide(card.id) { await $0.mute(github: card) }
+        case .forgetNews(let id): scene.history.remove(id)
+        }
+    }
+
+    /// The row goes at once and comes back if the hub could not take it away.
+    private func hide(_ row: String, until removal: @escaping @MainActor (DeckModel) async -> Bool) {
+        scene.leavingRows.insert(row)
         Task {
-            let isClosed = await model.closeChat(key: chat)
-            scene.closingChats.remove(chat)
-            if !isClosed { Feedback.error.play() }
+            let isGone = await removal(model)
+            scene.leavingRows.remove(row)
+            if !isGone { Feedback.error.play() }
         }
     }
 
@@ -271,17 +276,14 @@ final class DeckGestures {
 
     private func tap(atX x: CGFloat, y: CGFloat) {
         let target = scene.target(atX: x, y: y)
-        if case .closeChat(let chat) = target { return close(chat: chat) }
+        if case .rowButton(let button) = target { return press(button) }
         // A tap beside an uncovered button only covers it again, as in Messages.
         if scene.feed.coverRow() { return coast(velocity: 0) }
         switch target {
         case .action(let card, let index): model.press(card: card, actionIndex: index)
-        case .dismiss(let card): model.dismiss(card: card)
-        case .forgetNews(let id): scene.history.remove(id)
         case .clearNews:
             scene.history.clear()
-            for card in model.deck.cards where card.isNotification { model.dismiss(card: card) }
-        case .mute(let card): model.mute(github: card)
+            for card in model.deck.cards where card.isNotification { hide(card.id) { await $0.dismiss(card: card) } }
         case .openOnMac(let card):
             Feedback.light.play()
             model.openOnMac(github: card)
@@ -299,7 +301,7 @@ final class DeckGestures {
         case .toggle(let integration):
             Feedback.light.play()
             model.toggle(integration)
-        case .closeChat, nil: break
+        case .rowButton, nil: break
         }
     }
 }

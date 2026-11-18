@@ -38,7 +38,7 @@ While something is going on, the closed notch grows wings. The left one holds th
 - someone mentions you on GitHub (`anna: Let's ask @you`),
 - a meeting is five minutes away or starts (`Billing sync in 5m`).
 
-Settings has a Notifications choice for each integration and for meetings: Off, Show (the line only) or Show and keep. Kept notifications also land on the board under the cards, as outlined rows with a bell, the tile they came from and the time. Scripts and agents send their own notifications as cards with a `source`, see [Cards](#cards); those always stay there. A click opens the pull request, comment, Orca chat or call; × removes the row and `clear all` removes them all. The board keeps the latest 50.
+Settings has a Notifications choice for each integration and for meetings: Off, Show (the line only) or Show and keep. Kept notifications also land on the board under the cards, as outlined rows with a bell, the tile they came from and the time. Scripts and agents send their own notifications as cards with a `source`, see [Cards](#cards); those always stay there. A click opens the pull request, comment, Orca chat or call; swiping a row left removes it and `clear all` removes them all. The board keeps the latest 50.
 
 If the wings show the same for three minutes, the character leaves and the counts on the right dim, still readable; with nothing to count the wings fold. It moonwalks into the notch, flies off on its antenna, vanishes in a puff of smoke, or takes one of four other exits. It comes back its own way, one of six, as soon as something changes, or after you hover over the notch and the board closes. Settings → Notch changes the time, from 15 seconds to half an hour, or keeps the character on the wing.
 
@@ -88,7 +88,7 @@ The board closes when the pointer leaves and never takes focus from the app you 
 - To go back from a list, swipe right or click its name beside the notch, such as `< ORCA`.
 - Swipe right on the board for the integrations, left to come back.
 - Pull down on the board or the GitHub list to ask GitHub right away, on the Orca list to ask Orca.
-- Swipe an Orca chat left for its close button.
+- Swipe a row left for its button: `clear` on the board, `close` on an Orca chat, `mute` on a pull request. A long swipe presses it.
 
 Mouse drags and two-finger trackpad swipes both work. The mouse wheel only scrolls.
 
@@ -115,7 +115,7 @@ Orca does not report the questions agents ask, so an `AskUserQuestion` shows onl
 
 The character sits on the top agent tile and reacts to sessions in both. It also shows the text from `set_status`.
 
-**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, drafts skipped. The octopus acts out the most urgent state: it blows bubbles while CI runs, waves at requested changes and mentions, goes red when CI fails, reads when your review is requested and looks pleased with an approval. The × on a row mutes it until its checks, review decision or title change.
+**GITHUB.** Once a minute the hub asks `gh` for your open pull requests and review requests, drafts skipped. The octopus acts out the most urgent state: it blows bubbles while CI runs, waves at requested changes and mentions, goes red when CI fails, reads when your review is requested and looks pleased with an approval. Swiping a row left mutes it until its checks, review decision or title change.
 
 Mentions come from your unread GitHub notifications. For each pull request or issue the row shows the latest comment from the past week where someone wrote `@you`, with the author and the line that mentions you. Bots, team mentions and quoted text don't count. A click opens the comment and clears the row; a newer mention in the same thread brings it back.
 

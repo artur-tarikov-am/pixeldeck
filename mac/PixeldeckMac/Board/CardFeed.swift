@@ -1,6 +1,6 @@
 import Foundation
 
-/// A row pushed aside by a swipe, with the close button in the gap.
+/// A row pushed aside by a swipe, with its button in the gap.
 struct SwipedRow {
     let key: String
     let offsetAtGrab: Double
@@ -33,11 +33,10 @@ final class CardFeed {
     private static let springStrength = 14.0
     private static let settledOverscroll = 0.25
     private static let physicsStep = 1.0 / 240
-    private static let closeLabel = "close"
     private static let rowSettleRate = 20.0
     private static let settledRowDistance = 0.5
-    /// How much of the row a finger has to cover for the swipe itself to close it.
-    private static let closeLine = 0.6
+    /// How much of the row a finger has to cover for the swipe itself to press the button.
+    private static let pressLine = 0.6
     private static let pinInset = 3
     private static let pin: [[Character]] = [
         ".ooo.",
@@ -69,13 +68,22 @@ final class CardFeed {
     private(set) var contentHeight = 0
     private(set) var swipedRow: SwipedRow?
     private var rowWidth = 0
+    /// The rows on screen that have a button to uncover, as last drawn.
+    private var swipeableRows: [(box: Box, button: RowButton)] = []
 
-    private var closeButtonWidth: Double { Double(font.width(of: Self.closeLabel) + 4 * Self.padding) }
+    var swipedButton: RowButton? {
+        swipedRow.flatMap { row in swipeableRows.first { $0.button.key == row.key }?.button }
+    }
+
+    private var buttonWidth: Double {
+        Double(font.width(of: swipedButton?.label ?? "") + 4 * Self.padding)
+    }
+
     private var isRowSettling: Bool { swipedRow.map { $0.offset != $0.rest } ?? false }
 
     /// Whole cells, because the row is drawn into the grid.
     var rowShift: Int { Int(swipedRow?.offset ?? 0) }
-    var isRowPastCloseLine: Bool { (swipedRow?.offset ?? 0) >= Double(rowWidth) * Self.closeLine }
+    var isRowPastPressLine: Bool { (swipedRow?.offset ?? 0) >= Double(rowWidth) * Self.pressLine }
 
     private var overscroll: Double { scroll - min(max(scroll, 0), maxScroll) }
 
@@ -107,6 +115,12 @@ final class CardFeed {
         velocity = 0
         isHeld = false
         swipedRow = nil
+        swipeableRows = []
+    }
+
+    /// `x` and `y` are cells of the feed.
+    func swipeableRow(atX x: Int, y: Int) -> String? {
+        swipeableRows.first { $0.box.contains(x: x, y: y) }?.button.key
     }
 
     func grabRow(_ key: String) {
@@ -123,7 +137,7 @@ final class CardFeed {
     /// Goes by where the row was heading, so a short flick uncovers the button.
     func settleRow(heading distance: Double) {
         guard let row = swipedRow else { return }
-        sendRow(to: row.offsetAtGrab - distance < closeButtonWidth / 2 ? 0 : closeButtonWidth)
+        sendRow(to: row.offsetAtGrab - distance < buttonWidth / 2 ? 0 : buttonWidth)
     }
 
     /// Returns whether there was a row to cover.
@@ -189,6 +203,7 @@ final class CardFeed {
         let bodyLines: [String]
         let noteLines: [String]
         let buttons: [(box: Box, index: Int)]
+        let isPinned: Bool
         let height: Int
     }
 
@@ -197,17 +212,17 @@ final class CardFeed {
         return card.light == nil ? (0, 0) : (Light.size, Light.size)
     }
 
-    private func layout(_ card: Card, width: Int) -> Layout {
+    private func layout(_ card: Card, width: Int, isPinned: Bool) -> Layout {
         if case .heading = card.look {
             return Layout(card: card, sprite: nil, titleLines: [card.title], bodyLines: [], noteLines: [],
-                          buttons: [], height: Self.headingTop + Scene.lineHeight)
+                          buttons: [], isPinned: false, height: Self.headingTop + Scene.lineHeight)
         }
         let sprite = card.sprite?.sprite
         let icon = iconSize(of: card, sprite: sprite)
         let inner = width - 2 * Self.padding
         let iconSpace = icon.width > 0 ? icon.width + Self.iconGap : 0
-        let closeSpace = font.glyphWidth + 2
-        let titleWidth = inner - iconSpace - closeSpace
+        let pinSpace = isPinned ? font.glyphWidth + 2 : 0
+        let titleWidth = inner - iconSpace - pinSpace
         let titleLimit: Int? = switch card.look {
         case .news: Self.newsTitleLines
         case .card, .heading: card.light == nil ? nil : Self.lightTitleLines
@@ -241,6 +256,7 @@ final class CardFeed {
             bodyLines: bodyLines,
             noteLines: noteLines,
             buttons: buttons,
+            isPinned: isPinned,
             height: y + Self.padding
         )
     }
@@ -276,16 +292,17 @@ final class CardFeed {
         in feed: Box,
         bottomInset: Int,
         rowTarget: (Card) -> Target?,
-        dismissTarget: (Card) -> Target?,
+        rowButton: (Card) -> RowButton?,
         isPinned: (Card) -> Bool,
         time: TimeInterval,
         into buffer: inout Framebuffer
     ) -> [(box: Box, target: Target)] {
-        let layouts = cards.map { layout($0, width: feed.width) }
+        let layouts = cards.map { layout($0, width: feed.width, isPinned: isPinned($0)) }
         contentHeight = layouts.reduce(0) { $0 + $1.height + Self.cardGap } - Self.cardGap
         maxScroll = max(0, Double(contentHeight + bottomInset - feed.height))
         rowWidth = feed.width
         if let row = swipedRow, !cards.contains(where: { $0.id == row.key }) { swipedRow = nil }
+        swipeableRows = []
 
         var targets: [(box: Box, target: Target)] = []
         let register = { (box: Box, target: Target) in
@@ -296,14 +313,16 @@ final class CardFeed {
         var y = feed.y - Int(scroll)
         for card in layouts {
             if y < visibleBottom, y + card.height > feed.y {
+                let row = Box(x: feed.x, y: y, width: feed.width, height: card.height)
                 let shift = swipedRow?.key == card.card.id ? rowShift : 0
-                if shift > 0 {
-                    let row = Box(x: feed.x, y: y, width: feed.width, height: card.height)
-                    drawCloseButton(card.card, behind: row, revealed: shift, register: register, into: &buffer)
+                if let button = rowButton(card.card) {
+                    swipeableRows.append((row, button))
+                    if shift > 0 {
+                        drawRowButton(button, behind: row, revealed: shift, register: register, into: &buffer)
+                    }
                 }
-                draw(card, x: feed.x - shift, y: y, width: feed.width, rowTarget: rowTarget,
-                     dismissTarget: dismissTarget, isPinned: isPinned, time: time, register: register,
-                     into: &buffer)
+                draw(card, x: feed.x - shift, y: y, width: feed.width, rowTarget: rowTarget, time: time,
+                     register: register, into: &buffer)
             }
             y += card.height + Self.cardGap
         }
@@ -316,19 +335,17 @@ final class CardFeed {
         y: Int,
         width: Int,
         rowTarget: (Card) -> Target?,
-        dismissTarget: (Card) -> Target?,
-        isPinned: (Card) -> Bool,
         time: TimeInterval,
         register: (Box, Target) -> Void,
         into buffer: inout Framebuffer
     ) {
         let frame = Box(x: x, y: y, width: width, height: layout.height)
-        let cornerX = frame.maxX - Self.padding - font.glyphWidth
+        let rightX = frame.maxX - Self.padding
         let textX = x + Self.padding
         var cursorY = y + Self.padding
         switch layout.card.look {
         case .heading:
-            return drawHeading(layout.card, in: frame, dismissTarget: dismissTarget, register: register, into: &buffer)
+            return drawHeading(layout.card, in: frame, register: register, into: &buffer)
         case .card:
             buffer.fill(frame, Palette.panel, radius: Self.cornerRadius)
             buffer.stroke(frame, borderColor(for: layout.card), radius: Self.cornerRadius)
@@ -337,8 +354,7 @@ final class CardFeed {
             buffer.stroke(frame, Palette.line, radius: Self.cornerRadius)
             drawBitmap(Self.bell, x: textX, y: cursorY + 1, color: Palette.dim, into: &buffer)
             font.draw(source, x: textX + Light.size + Self.iconGap, y: cursorY, color: Palette.dim, into: &buffer)
-            let whenX = cornerX - Self.iconGap - font.width(of: when)
-            font.draw(when, x: whenX, y: cursorY, color: Palette.dim, into: &buffer)
+            font.draw(when, x: rightX - font.width(of: when), y: cursorY, color: Palette.dim, into: &buffer)
             cursorY += newsLineHeight(of: layout.card)
         }
 
@@ -373,30 +389,24 @@ final class CardFeed {
             }
         }
 
-        if isPinned(layout.card) {
-            drawBitmap(Self.pin, x: cornerX, y: y + Self.pinInset, color: Palette.accent, into: &buffer)
+        if layout.isPinned {
+            let pinX = rightX - font.glyphWidth
+            drawBitmap(Self.pin, x: pinX, y: y + Self.pinInset, color: Palette.accent, into: &buffer)
         }
-
-        guard let dismiss = dismissTarget(layout.card) else { return }
-        font.draw("×", x: cornerX, y: y + 2, color: Palette.dim, into: &buffer)
-        let close = Box(x: cornerX, y: y + 2, width: font.glyphWidth, height: Scene.lineHeight)
-        register(close.expanded(by: 8), dismiss)
     }
 
     private func drawHeading(
         _ card: Card,
         in frame: Box,
-        dismissTarget: (Card) -> Target?,
         register: (Box, Target) -> Void,
         into buffer: inout Framebuffer
     ) {
         let y = frame.y + Self.headingTop
         font.draw(card.title, x: frame.x + Self.padding, y: y, color: Palette.dim, into: &buffer)
-        guard let dismiss = dismissTarget(card) else { return }
         let width = font.width(of: Self.clearLabel)
         let x = frame.maxX - Self.padding - width
         font.draw(Self.clearLabel, x: x, y: y, color: Palette.accent, into: &buffer)
-        register(Box(x: x, y: y, width: width, height: Scene.lineHeight).expanded(by: 6), dismiss)
+        register(Box(x: x, y: y, width: width, height: Scene.lineHeight).expanded(by: 6), .clearNews)
     }
 
     private func drawBitmap(_ bitmap: [[Character]], x: Int, y: Int, color: Pixel, into buffer: inout Framebuffer) {
@@ -407,8 +417,8 @@ final class CardFeed {
         }
     }
 
-    private func drawCloseButton(
-        _ card: Card,
+    private func drawRowButton(
+        _ rowButton: RowButton,
         behind row: Box,
         revealed: Int,
         register: (Box, Target) -> Void,
@@ -416,17 +426,17 @@ final class CardFeed {
     ) {
         let button = Box(x: row.maxX - revealed, y: row.y, width: revealed, height: row.height)
         buffer.fill(button, Palette.red, radius: Self.cornerRadius)
-        let labelWidth = font.width(of: Self.closeLabel)
+        let labelWidth = font.width(of: rowButton.label)
         if revealed >= labelWidth {
             font.draw(
-                Self.closeLabel,
+                rowButton.label,
                 x: button.x + (revealed - labelWidth) / 2,
                 y: row.y + (row.height - font.glyphHeight) / 2 + 1,
                 color: Palette.text,
                 into: &buffer
             )
         }
-        register(button, .closeChat(key: card.id))
+        register(button, .rowButton(rowButton))
     }
 
     private func drawButton(_ action: CardAction, box: Box, into buffer: inout Framebuffer) {

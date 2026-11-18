@@ -72,18 +72,19 @@ final class DeckModel {
         send(path: "/cards/\(card.id)/press", method: "POST", body: ["index": actionIndex])
     }
 
-    func dismiss(card: Card) {
-        send(path: "/cards/\(card.id)", method: "DELETE")
+    /// Returns whether the card is gone.
+    func dismiss(card: Card) async -> Bool {
+        await call(path: "/cards/\(card.id)", method: "DELETE")
     }
 
     /// Returns whether the hub got fresh data.
     func refresh(_ source: RefreshSource) async -> Bool {
-        await post(path: "/\(source.rawValue)-refreshes")
+        await call(path: "/\(source.rawValue)-refreshes", method: "POST")
     }
 
     /// Returns whether the chat is gone.
     func closeChat(key: String) async -> Bool {
-        await post(path: "/orca-closes", body: ["key": key])
+        await call(path: "/orca-closes", method: "POST", body: ["key": key])
     }
 
     func openOnMac(github card: Card) {
@@ -94,17 +95,18 @@ final class DeckModel {
         send(path: "/orca-opens", method: "POST", body: ["key": key])
     }
 
-    func mute(github card: Card) {
-        send(path: "/github-mutes", method: "POST", body: ["key": card.id])
+    /// Returns whether the row is gone.
+    func mute(github card: Card) async -> Bool {
+        await call(path: "/github-mutes", method: "POST", body: ["key": card.id])
     }
 
     func toggle(_ integration: Integration) {
         send(path: "/integrations/\(integration.id)", method: "PUT", body: ["isOn": !integration.isOn])
     }
 
-    private func post(path: String, body: (any Encodable)? = nil) async -> Bool {
+    private func call(path: String, method: String, body: (any Encodable)? = nil) async -> Bool {
         var request = hubRequest(path: path)
-        request.httpMethod = "POST"
+        request.httpMethod = method
         request.httpBody = body.flatMap { try? JSONEncoder().encode($0) }
         request.timeoutInterval = Self.answerTimeout
         let response = try? await URLSession.shared.data(for: request).1

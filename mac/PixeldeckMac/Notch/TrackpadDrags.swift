@@ -1,7 +1,7 @@
 import AppKit
 
 /// Two fingers on a trackpad drag the board the way the mouse does:
-/// scrolling, pull to refresh, swipes between screens and the close button under a chat.
+/// scrolling, pull to refresh, swipes between screens and the button under a row.
 /// A mouse wheel only scrolls.
 @MainActor
 final class TrackpadDrags {

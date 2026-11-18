@@ -3,13 +3,10 @@ import Foundation
 
 enum Target {
     case action(Card, index: Int)
-    case dismiss(Card)
-    case mute(Card)
+    case rowButton(RowButton)
     case openOnMac(Card)
     case openChat(key: String)
-    case closeChat(key: String)
     case openLink(URL)
-    case forgetNews(id: String)
     case clearNews
     case openOrca
     case openClaude
@@ -17,6 +14,35 @@ enum Target {
     case openMeetings
     case back
     case toggle(Integration)
+}
+
+/// The button a row uncovers when swiped left.
+enum RowButton {
+    case closeChat(key: String, isAtWork: Bool)
+    case dismiss(Card)
+    case mute(Card)
+    case forgetNews(id: String)
+
+    /// The id of the row it sits under.
+    var key: String {
+        switch self {
+        case .closeChat(let key, _), .forgetNews(let key): key
+        case .dismiss(let card), .mute(let card): card.id
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .closeChat: "close"
+        case .dismiss, .forgetNews: "clear"
+        case .mute: "mute"
+        }
+    }
+
+    /// One long swipe presses it, except on a chat with an agent at work: closing it stops the agent.
+    var takesLongSwipe: Bool {
+        if case .closeChat(_, isAtWork: true) = self { false } else { true }
+    }
 }
 
 enum Screen {
@@ -116,8 +142,8 @@ final class Scene {
     private let emptyBoard = EmptyBoard()
     var isRevealingExit = false
     var pullState = PullState.hidden
-    /// Hidden while the Mac is closing them, and back if it fails.
-    var closingChats: Set<String> = []
+    /// Rows hidden while the hub takes them away, and back if it fails.
+    var leavingRows: Set<String> = []
     /// Today's meetings from the calendar of the Mac, by start.
     var meetings: [Meeting] = []
     private(set) var screen = Screen.board
@@ -173,15 +199,12 @@ final class Scene {
         return boardTargets.last { $0.box.contains(x: column, y: row) }?.target
     }
 
-    /// The chat a sideways drag would move: to the left it uncovers the button, to the right it covers it again.
-    func swipeableChat(atX x: CGFloat, y: CGFloat, dragWidth: CGFloat) -> String? {
-        guard screen == .orca else { return nil }
-        let key: String
-        switch target(atX: x, y: y) {
-        case .openChat(let found), .closeChat(let found): key = found
-        default: return nil
-        }
-        guard dragWidth < 0 || key == feed.swipedRow?.key else { return nil }
+    /// The row a sideways drag would move: to the left it uncovers the button, to the right it covers it again.
+    func swipeableRow(atX x: CGFloat, y: CGFloat, dragWidth: CGFloat) -> String? {
+        guard y >= feedTop,
+              let key = feed.swipeableRow(atX: Int(x / Self.feedPixel), y: Int((y - feedTop) / Self.feedPixel)),
+              dragWidth < 0 || key == feed.swipedRow?.key
+        else { return nil }
         return key
     }
 
@@ -196,6 +219,7 @@ final class Scene {
         safeBottom: CGFloat
     ) -> Frame? {
         let time = now.timeIntervalSinceReferenceDate
+        let deck = deck.without(leavingRows)
         feed.advance(to: time)
 
         let tick = Int(time * Self.animationFramesPerSecond)
@@ -228,6 +252,7 @@ final class Scene {
             var layer = Framebuffer(width: columns, height: rows + 1)
             let screen = self.screen
             let pinned = Set(deck.orca.filter(\.isPinned).map(\.id))
+            let atWork = Set(deck.orca.filter(\.isAtWork).map(\.id))
             let links = Dictionary(
                 meetings.compactMap { meeting in meeting.link.map { (meeting.key, $0) } },
                 uniquingKeysWith: { first, _ in first }
@@ -255,11 +280,12 @@ final class Scene {
                     case .claude, .catalog: nil
                     }
                 },
-                dismissTarget: { card in
+                rowButton: { card in
                     switch screen {
-                    case .orca, .claude, .meetings: nil
+                    case .board: Self.boardRowButton(card, isKept: keptIDs.contains(card.id))
+                    case .orca: .closeChat(key: card.id, isAtWork: atWork.contains(card.id))
                     case .github: .mute(card)
-                    case .board, .catalog: Self.boardDismissTarget(card, isKept: keptIDs.contains(card.id))
+                    case .claude, .meetings, .catalog: nil
                     }
                 },
                 isPinned: { pinned.contains($0.id) },
@@ -324,8 +350,7 @@ final class Scene {
         case .orca:
             boardTargets = backTarget(boardWidth: buffer.width, headerRows: contentTop)
             feedRow = contentTop
-            let chats = deck.orca.filter { !closingChats.contains($0.id) }
-            feedCards = (chats.filter(\.isPinned) + chats.filter { !$0.isPinned }).map(\.card)
+            feedCards = (deck.orca.filter(\.isPinned) + deck.orca.filter { !$0.isPinned }).map(\.card)
             contentRows = contentTop
         case .claude:
             boardTargets = backTarget(boardWidth: buffer.width, headerRows: contentTop)
@@ -480,10 +505,10 @@ final class Scene {
         Calendar.current.isDate(date, inSameDayAs: now) ? clock.string(from: date) : day.string(from: date)
     }
 
-    /// A kept news lives in this app, a card in the hub.
-    private static func boardDismissTarget(_ card: Card, isKept: Bool) -> Target {
+    /// A kept news lives in this app, a card in the hub. The label over the notifications stays put.
+    private static func boardRowButton(_ card: Card, isKept: Bool) -> RowButton? {
         switch card.look {
-        case .heading: .clearNews
+        case .heading: nil
         case .card, .news: isKept ? .forgetNews(id: card.id) : .dismiss(card)
         }
     }

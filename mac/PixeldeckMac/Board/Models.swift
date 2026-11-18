@@ -25,6 +25,14 @@ struct Deck: Decodable {
     /// The cards that are not notifications.
     var plainCards: [Card] { cards.filter { !$0.isNotification } }
 
+    func without(_ rows: Set<String>) -> Deck {
+        var deck = self
+        deck.cards.removeAll { rows.contains($0.id) }
+        deck.orca.removeAll { rows.contains($0.id) }
+        deck.github.removeAll { rows.contains($0.key) }
+        return deck
+    }
+
     /// Until the hub answers nothing is known, and the tiles are what shows the connection.
     private func shows(_ id: String) -> Bool {
         integrations.first { $0.id == id }?.isOn ?? true
