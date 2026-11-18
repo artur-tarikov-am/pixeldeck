@@ -32,6 +32,8 @@ struct SettingsView: View {
     )
 
     private static let leaveChoices = [0, 15, 30, 45, 60, 180, 300, 600, 1800]
+    /// All sections together are taller than a laptop screen, so the form scrolls.
+    private static let height: CGFloat = 720
 
     let controller: HubController
     @Bindable var calendar: MeetingCalendar
@@ -40,15 +42,18 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Integrations") {
-                ForEach(controller.integrations, id: \.id) { integration in
+            ForEach(controller.integrations, id: \.id) { integration in
+                Section(integration.id.name) {
                     Toggle(isOn: Binding(
                         get: { integration.isOn },
                         set: { isOn in Task { await controller.setIntegration(integration.id, isOn: isOn) } }
                     )) {
-                        Text(integration.id.name)
+                        Text("On the board")
                         Text(integration.id.setupHint ?? integration.sentence)
                     }
+                    NewsPicker(source: integration.id.newsSource)
+                        .disabled(!integration.isOn)
+                    if integration.id == .claude { claudePlugin }
                 }
             }
 
@@ -76,6 +81,10 @@ struct SettingsView: View {
                         Text("Pixeldeck has no access to the Calendar. Allow it in Privacy & Security → Calendars.")
                     }
                 }
+                if calendar.access == .granted {
+                    NewsPicker(source: .meetings)
+                        .disabled(!calendar.isOn)
+                }
             }
 
             Section("Notch") {
@@ -87,19 +96,6 @@ struct SettingsView: View {
                 } label: {
                     Text("Character leaves")
                     Text("When the wings show the same for this long. Anything new brings it back.")
-                }
-            }
-
-            Section("Claude Code") {
-                LabeledContent {
-                    switch claude {
-                    case .connecting: ProgressView().controlSize(.small)
-                    case .connected: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    case .notAsked, .failed: Button("Connect") { Task { await connectClaude() } }
-                    }
-                } label: {
-                    Text("Pixeldeck plugin")
-                    Text(claudeNote)
                 }
             }
 
@@ -126,8 +122,20 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 460, height: Self.height)
+    }
+
+    private var claudePlugin: some View {
+        LabeledContent {
+            switch claude {
+            case .connecting: ProgressView().controlSize(.small)
+            case .connected: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            case .notAsked, .failed: Button("Connect") { Task { await connectClaude() } }
+            }
+        } label: {
+            Text("Pixeldeck plugin")
+            Text(claudeNote)
+        }
     }
 
     private static let meetingsHint = "Today's meetings with a countdown and a link to join."
@@ -175,6 +183,57 @@ private extension IntegrationID {
         case .orca: "Orca has not run on this Mac yet."
         case .claude: nil
         case .github: "Needs gh auth login in Terminal."
+        }
+    }
+
+    var newsSource: NewsSource {
+        switch self {
+        case .orca: .orca
+        case .claude: .claude
+        case .github: .github
+        }
+    }
+}
+
+/// Whether a source notifies at all, and whether its notifications stay on the board.
+private struct NewsPicker: View {
+    let source: NewsSource
+    @AppStorage private var mode: NewsMode
+
+    init(source: NewsSource) {
+        self.source = source
+        _mode = AppStorage(wrappedValue: .standard, source.modeKey)
+    }
+
+    var body: some View {
+        Picker(selection: $mode) {
+            Text("Off").tag(NewsMode.off)
+            Text("Show").tag(NewsMode.shown)
+            Text("Show and keep").tag(NewsMode.kept)
+        } label: {
+            Text("Notifications")
+            Text([source.events, mode.outcome].compactMap { $0 }.joined(separator: " "))
+        }
+    }
+}
+
+private extension NewsSource {
+    var events: String {
+        switch self {
+        case .orca: "When a chat waits for you, finishes or fails."
+        case .claude: "When a session waits for you, finishes or fails."
+        case .github: "Mentions, approvals, and your pull requests turning ready to merge, failing CI or getting changes requested."
+        case .meetings: "Five minutes before a meeting and as it starts."
+        }
+    }
+}
+
+private extension NewsMode {
+    var outcome: String? {
+        switch self {
+        case .off: nil
+        case .shown: "A line under the notch for three seconds."
+        case .kept: "A line under the notch, then a row on the board until you clear it."
         }
     }
 }

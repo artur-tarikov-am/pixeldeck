@@ -260,7 +260,7 @@ final class ClosedNotch {
 
     let presence = CharacterPresence()
     private let scene = Scene()
-    private let news = NotchNews()
+    private lazy var news = NotchNews(history: scene.history)
     private lazy var bar = NotchBar(scene: scene, news: news, presence: presence)
     private var deck: Deck
     private var shape: (size: CGSize, ear: CGFloat)?
@@ -283,7 +283,7 @@ final class ClosedNotch {
     }
 
     func change(to next: Deck) {
-        news.hear(old: deck, new: next)
+        news.hear(old: deck, new: next, isOpen: false)
         deck = next
     }
 

@@ -17,6 +17,10 @@ final class CardFeed {
     private static let buttonHeight = 15
     private static let buttonGap = 3
     private static let lightTitleLines = 2
+    private static let newsTitleLines = 3
+    /// Sets the kept notifications apart from the cards above them.
+    private static let headingTop = 6
+    private static let clearLabel = "clear all"
     /// The corners of the tiles on the board, on the finer grid of the feed.
     private static let cornerRadius = Int((CGFloat(Scene.cornerRadius) * Scene.boardPixel / Scene.feedPixel).rounded())
     private static let buttonCornerRadius = 2
@@ -43,6 +47,16 @@ final class CardFeed {
         "..o..",
         "..o..",
         "..o..",
+    ].map(Array.init)
+    private static let bell: [[Character]] = [
+        "...o...",
+        "..ooo..",
+        ".ooooo.",
+        ".ooooo.",
+        ".ooooo.",
+        "ooooooo",
+        ".......",
+        "..ooo..",
     ].map(Array.init)
 
     private let font = PixelFont.shared
@@ -184,19 +198,26 @@ final class CardFeed {
     }
 
     private func layout(_ card: Card, width: Int) -> Layout {
+        if case .heading = card.look {
+            return Layout(card: card, sprite: nil, titleLines: [card.title], bodyLines: [], noteLines: [],
+                          buttons: [], height: Self.headingTop + Scene.lineHeight)
+        }
         let sprite = card.sprite?.sprite
         let icon = iconSize(of: card, sprite: sprite)
         let inner = width - 2 * Self.padding
         let iconSpace = icon.width > 0 ? icon.width + Self.iconGap : 0
         let closeSpace = font.glyphWidth + 2
         let titleWidth = inner - iconSpace - closeSpace
-        let titleLines = card.light == nil
-            ? font.wrap(card.title, width: titleWidth)
-            : font.wrap(card.title, width: titleWidth, limit: Self.lightTitleLines)
+        let titleLimit: Int? = switch card.look {
+        case .news: Self.newsTitleLines
+        case .card, .heading: card.light == nil ? nil : Self.lightTitleLines
+        }
+        let titleLines = titleLimit.map { font.wrap(card.title, width: titleWidth, limit: $0) }
+            ?? font.wrap(card.title, width: titleWidth)
         let bodyLines = card.text.map { font.wrap($0, width: inner) } ?? []
         let noteLines = card.note.map { font.wrap($0, width: inner) } ?? []
 
-        var y = Self.padding + max(titleLines.count * Scene.lineHeight, icon.height)
+        var y = Self.padding + newsLineHeight(of: card) + max(titleLines.count * Scene.lineHeight, icon.height)
         y += (bodyLines.count + noteLines.count) * Scene.lineHeight
         var buttons: [(box: Box, index: Int)] = []
         var x = Self.padding
@@ -222,6 +243,11 @@ final class CardFeed {
             buttons: buttons,
             height: y + Self.padding
         )
+    }
+
+    /// A kept notification starts with a line that says where it came from and when.
+    private func newsLineHeight(of card: Card) -> Int {
+        if case .news = card.look { Scene.lineHeight } else { 0 }
     }
 
     private func label(for action: CardAction) -> String {
@@ -297,13 +323,27 @@ final class CardFeed {
         into buffer: inout Framebuffer
     ) {
         let frame = Box(x: x, y: y, width: width, height: layout.height)
-        buffer.fill(frame, Palette.panel, radius: Self.cornerRadius)
-        buffer.stroke(frame, borderColor(for: layout.card), radius: Self.cornerRadius)
+        let cornerX = frame.maxX - Self.padding - font.glyphWidth
+        let textX = x + Self.padding
+        var cursorY = y + Self.padding
+        switch layout.card.look {
+        case .heading:
+            return drawHeading(layout.card, in: frame, dismissTarget: dismissTarget, register: register, into: &buffer)
+        case .card:
+            buffer.fill(frame, Palette.panel, radius: Self.cornerRadius)
+            buffer.stroke(frame, borderColor(for: layout.card), radius: Self.cornerRadius)
+        case let .news(source, when):
+            // Only an outline: the filled cards above are the ones that ask for something.
+            buffer.stroke(frame, Palette.line, radius: Self.cornerRadius)
+            drawBitmap(Self.bell, x: textX, y: cursorY + 1, color: Palette.dim, into: &buffer)
+            font.draw(source, x: textX + Light.size + Self.iconGap, y: cursorY, color: Palette.dim, into: &buffer)
+            let whenX = cornerX - Self.iconGap - font.width(of: when)
+            font.draw(when, x: whenX, y: cursorY, color: Palette.dim, into: &buffer)
+            cursorY += newsLineHeight(of: layout.card)
+        }
 
         if let target = rowTarget(layout.card) { register(frame, target) }
 
-        let textX = x + Self.padding
-        var cursorY = y + Self.padding
         layout.sprite?.draw(at: time, x: textX, y: cursorY, into: &buffer)
         layout.card.light?.draw(at: time, x: textX, y: cursorY + 1, into: &buffer)
 
@@ -333,8 +373,9 @@ final class CardFeed {
             }
         }
 
-        let cornerX = frame.maxX - Self.padding - font.glyphWidth
-        if isPinned(layout.card) { drawPin(x: cornerX, y: y + Self.pinInset, into: &buffer) }
+        if isPinned(layout.card) {
+            drawBitmap(Self.pin, x: cornerX, y: y + Self.pinInset, color: Palette.accent, into: &buffer)
+        }
 
         guard let dismiss = dismissTarget(layout.card) else { return }
         font.draw("×", x: cornerX, y: y + 2, color: Palette.dim, into: &buffer)
@@ -342,10 +383,26 @@ final class CardFeed {
         register(close.expanded(by: 8), dismiss)
     }
 
-    private func drawPin(x: Int, y: Int, into buffer: inout Framebuffer) {
-        for (rowIndex, row) in Self.pin.enumerated() {
+    private func drawHeading(
+        _ card: Card,
+        in frame: Box,
+        dismissTarget: (Card) -> Target?,
+        register: (Box, Target) -> Void,
+        into buffer: inout Framebuffer
+    ) {
+        let y = frame.y + Self.headingTop
+        font.draw(card.title, x: frame.x + Self.padding, y: y, color: Palette.dim, into: &buffer)
+        guard let dismiss = dismissTarget(card) else { return }
+        let width = font.width(of: Self.clearLabel)
+        let x = frame.maxX - Self.padding - width
+        font.draw(Self.clearLabel, x: x, y: y, color: Palette.accent, into: &buffer)
+        register(Box(x: x, y: y, width: width, height: Scene.lineHeight).expanded(by: 6), dismiss)
+    }
+
+    private func drawBitmap(_ bitmap: [[Character]], x: Int, y: Int, color: Pixel, into buffer: inout Framebuffer) {
+        for (rowIndex, row) in bitmap.enumerated() {
             for (columnIndex, cell) in row.enumerated() where cell != "." {
-                buffer.plot(x: x + columnIndex, y: y + rowIndex, Palette.accent)
+                buffer.plot(x: x + columnIndex, y: y + rowIndex, color)
             }
         }
     }

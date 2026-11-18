@@ -80,6 +80,8 @@ struct GithubItem: Decodable {
     var light: Light
     var title: String
     var text: String
+    /// Kept as text, so a link the app cannot read does not break the whole stream.
+    var url: String?
     /// Who approved a pull request of the user, nil when the hub does not know.
     var approvedBy: [String]?
 
@@ -89,6 +91,19 @@ struct GithubItem: Decodable {
 }
 
 struct Card: Decodable, Identifiable {
+    /// How the feed draws the row.
+    enum Look {
+        case card
+        /// A kept notification, with the tile it came from and when.
+        case news(source: String, when: String)
+        /// The label over the kept notifications.
+        case heading
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, text, note, sprite, light, actions
+    }
+
     var id: String
     var title: String
     var text: String?
@@ -96,6 +111,7 @@ struct Card: Decodable, Identifiable {
     var sprite: SpriteReference?
     var light: Light?
     var actions: [CardAction]
+    var look = Look.card
 }
 
 struct CardAction: Decodable {

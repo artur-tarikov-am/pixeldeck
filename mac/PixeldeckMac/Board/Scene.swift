@@ -9,6 +9,8 @@ enum Target {
     case openChat(key: String)
     case closeChat(key: String)
     case openLink(URL)
+    case forgetNews(id: String)
+    case clearNews
     case openOrca
     case openClaude
     case openGithub
@@ -94,6 +96,7 @@ final class Scene {
     private static let indicatorGap = 4
     /// Keeps the header row clear of the rounded screen corners.
     private static let headerSideInset: CGFloat = 16
+    private static let newsHeadingID = "news-heading"
 
     private let font = PixelFont.shared
     private let clock: DateFormatter = {
@@ -101,8 +104,15 @@ final class Scene {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+    private let day: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "d MMM"
+        return formatter
+    }()
 
     let feed = CardFeed()
+    let history = NewsHistory()
     private let emptyBoard = EmptyBoard()
     var isRevealingExit = false
     var pullState = PullState.hidden
@@ -222,6 +232,10 @@ final class Scene {
                 meetings.compactMap { meeting in meeting.link.map { (meeting.key, $0) } },
                 uniquingKeysWith: { first, _ in first }
             )
+            let keptLinks = Dictionary(
+                history.entries.compactMap { entry in entry.link.map { (entry.id, $0) } },
+                uniquingKeysWith: { first, _ in first }
+            )
             feedTargets = feed.draw(
                 feedCards,
                 in: Box(
@@ -233,17 +247,18 @@ final class Scene {
                 bottomInset: Int((safeBottom / Self.feedPixel).rounded(.up)),
                 rowTarget: { card in
                     switch screen {
+                    case .board: keptLinks[card.id]?.target
                     case .orca: .openChat(key: card.id)
                     case .github: .openOnMac(card)
                     case .meetings: links[card.id].map { .openLink($0) }
-                    default: nil
+                    case .claude, .catalog: nil
                     }
                 },
                 dismissTarget: { card in
                     switch screen {
                     case .orca, .claude, .meetings: nil
                     case .github: .mute(card)
-                    default: .dismiss(card)
+                    case .board, .catalog: Self.boardDismissTarget(card)
                     }
                 },
                 isPinned: { pinned.contains($0.id) },
@@ -303,7 +318,7 @@ final class Scene {
                                   now: now, time: time, top: contentTop, into: &buffer)
             boardTargets = tiles.targets
             feedRow = tiles.nextRow
-            feedCards = deck.cards
+            feedCards = deck.cards + keptNews(at: now)
             contentRows = isBlank(deck, at: now) ? nil : tiles.nextRow - Self.tileGap
         case .orca:
             boardTargets = backTarget(boardWidth: buffer.width, headerRows: contentTop)
@@ -415,9 +430,36 @@ final class Scene {
         return (nextRow, targets)
     }
 
-    /// The board goes to the character only while no meeting is left today either.
+    /// The board goes to the character only while no meeting is left today and no notification is kept either.
     private func isBlank(_ deck: Deck, at now: Date) -> Bool {
-        deck.isBlank && meetingsLeft(at: now).isEmpty
+        deck.isBlank && meetingsLeft(at: now).isEmpty && history.entries.isEmpty
+    }
+
+    // MARK: Kept notifications
+
+    /// Under their label, newest first, after the cards from the hub.
+    private func keptNews(at now: Date) -> [Card] {
+        guard !history.entries.isEmpty else { return [] }
+        let heading = Card(id: Self.newsHeadingID, title: "NOTIFICATIONS", actions: [], look: .heading)
+        return [heading] + history.entries.map { entry in
+            Card(
+                id: entry.id, title: entry.text, light: entry.light, actions: [],
+                look: .news(source: entry.source.title, when: newsTime(entry.date, now: now))
+            )
+        }
+    }
+
+    /// The time of day for today's notifications, the date for older ones.
+    private func newsTime(_ date: Date, now: Date) -> String {
+        Calendar.current.isDate(date, inSameDayAs: now) ? clock.string(from: date) : day.string(from: date)
+    }
+
+    private static func boardDismissTarget(_ card: Card) -> Target {
+        switch card.look {
+        case .card: .dismiss(card)
+        case .news: .forgetNews(id: card.id)
+        case .heading: .clearNews
+        }
     }
 
     // MARK: Catalog
@@ -701,5 +743,14 @@ final class Scene {
         font.draw(title, x: titleX, y: y, color: Palette.text, into: &buffer)
         font.draw(status, x: statusX, y: y, color: Palette.dim, into: &buffer)
         return tile
+    }
+}
+
+private extension NewsHistory.Link {
+    var target: Target {
+        switch self {
+        case .url(let url): .openLink(url)
+        case .chat(let key): .openChat(key: key)
+        }
     }
 }

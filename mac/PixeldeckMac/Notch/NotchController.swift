@@ -20,7 +20,7 @@ final class NotchController {
     var openHeight: CGFloat = 0
     @ObservationIgnored private let gestures: DeckGestures
     @ObservationIgnored private let trackpad = TrackpadDrags()
-    @ObservationIgnored private let news = NotchNews()
+    @ObservationIgnored private let news: NotchNews
     @ObservationIgnored private let presence = CharacterPresence()
     @ObservationIgnored private let panel = NotchPanel()
     @ObservationIgnored private var pendingChange: (isOpen: Bool, task: Task<Void, Never>)?
@@ -35,16 +35,16 @@ final class NotchController {
 
     init(model: DeckModel, scene: Scene, geometry: NotchGeometry, hub: HubController, calendar: MeetingCalendar) {
         self.geometry = geometry
+        news = NotchNews(history: scene.history)
         let gestures = DeckGestures(model: model, scene: scene)
         self.gestures = gestures
         let bar = NotchBar(scene: scene, news: news, presence: presence)
         panel.contentView = FirstClickHostingView(rootView: NotchView(
             model: model, scene: scene, gestures: gestures, bar: bar, notch: self, hub: hub, calendar: calendar
         ))
-        // The open notch shows the board itself.
         model.onChange = { [weak self] old, new in
-            guard let self, !isOpen else { return }
-            news.hear(old: old, new: new)
+            guard let self else { return }
+            news.hear(old: old, new: new, isOpen: isOpen)
         }
         place()
         panel.orderFrontRegardless()

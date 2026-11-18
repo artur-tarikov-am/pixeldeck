@@ -4,21 +4,31 @@ import Foundation
 /// so it does not pass by while nobody looks at the wings. News are the cards and GitHub mentions
 /// that arrive, approvals of the user's pull requests, the agents and pull requests whose light turns
 /// to something worth a glance, and the meetings five minutes before they start and as they start.
+/// Settings can switch the news of a source off, or keep it on the board in `NewsHistory`.
 @MainActor
 final class NotchNews {
     struct Item {
         /// The row the news is about: newer news about it replaces the older one still waiting.
         var key: String
+        /// Nil for a card, which stays on the board by itself.
+        var source: NewsSource?
         var light: Light?
         var name: String
         /// What happened to it; a card says everything in its title.
         var change: String?
+        /// Where the news leads once kept on the board.
+        var link: NewsHistory.Link?
+
+        var sentence: String {
+            [name, change].compactMap { $0 }.joined(separator: " ")
+        }
     }
 
     private struct Row {
         var key: String
         var light: Light
         var name: String
+        var link: NewsHistory.Link?
     }
 
     private struct Reminder: Hashable {
@@ -32,12 +42,20 @@ final class NotchNews {
     /// A reminder missed by longer, such as while the notch was open, is not worth telling late.
     private static let reminderGrace: TimeInterval = 60
 
+    private let history: NewsHistory
     private var queue: [Item] = []
     private var shownSince: Date?
     private var toldReminders: Set<Reminder> = []
 
-    func hear(old: Deck, new: Deck) {
-        Self.news(from: old, to: new).forEach(tell)
+    init(history: NewsHistory) {
+        self.history = history
+    }
+
+    /// The open board shows the change itself, so then the news only goes to the history.
+    func hear(old: Deck, new: Deck, isOpen: Bool) {
+        for item in Self.news(from: old, to: new) {
+            deliver(item, tells: !isOpen, at: .now)
+        }
     }
 
     func hear(_ meetings: [Meeting], at now: Date) {
@@ -49,9 +67,24 @@ final class NotchNews {
                 guard now >= due, now.timeIntervalSince(due) < Self.reminderGrace, !toldReminders.contains(told)
                 else { continue }
                 toldReminders.insert(told)
-                tell(Item(key: meeting.key, light: meeting.phase(at: now)?.light, name: meeting.title, change: reminder.says))
+                let item = Item(
+                    key: meeting.key, source: .meetings, light: meeting.phase(at: now)?.light, name: meeting.title,
+                    change: reminder.says, link: meeting.link.map(NewsHistory.Link.url)
+                )
+                deliver(item, tells: true, at: now)
             }
         }
+    }
+
+    private func deliver(_ item: Item, tells: Bool, at now: Date) {
+        if let source = item.source {
+            switch source.mode {
+            case .off: return
+            case .shown: break
+            case .kept: history.keep(source: source, light: item.light, text: item.sentence, link: item.link, at: now)
+            }
+        }
+        if tells { tell(item) }
     }
 
     private func tell(_ item: Item) {
@@ -82,29 +115,22 @@ final class NotchNews {
             Item(key: $0.id, light: $0.light, name: $0.title)
         }
         if new.showsOrca {
-            news += changes(
-                from: old.orca.map { Row(key: $0.id, light: $0.light, name: $0.title) },
-                to: new.orca.map { Row(key: $0.id, light: $0.light, name: $0.title) },
-                says: agentChange
-            )
+            let row = { (chat: OrcaSession) in
+                Row(key: chat.id, light: chat.light, name: chat.title, link: .chat(key: chat.id))
+            }
+            news += changes(from: old.orca.map(row), to: new.orca.map(row), source: .orca, says: agentChange)
         }
         if new.showsClaude {
-            news += changes(
-                from: old.claude.map { Row(key: $0.id, light: $0.light, name: $0.project) },
-                to: new.claude.map { Row(key: $0.id, light: $0.light, name: $0.project) },
-                says: agentChange
-            )
+            let row = { (session: ClaudeSession) in Row(key: session.id, light: session.light, name: session.project) }
+            news += changes(from: old.claude.map(row), to: new.claude.map(row), source: .claude, says: agentChange)
         }
         if new.showsGithub {
             let knownGithub = Set(old.github.map(\.key))
             news += new.github.filter { $0.group == .mention && !knownGithub.contains($0.key) }.map {
-                Item(key: $0.key, light: $0.light, name: $0.text)
+                Item(key: $0.key, source: .github, light: $0.light, name: $0.text, link: $0.link)
             }
-            news += changes(
-                from: old.github.map { Row(key: $0.key, light: $0.light, name: $0.title) },
-                to: new.github.map { Row(key: $0.key, light: $0.light, name: $0.title) },
-                says: pullRequestChange
-            )
+            let row = { (item: GithubItem) in Row(key: item.key, light: item.light, name: item.title, link: item.link) }
+            news += changes(from: old.github.map(row), to: new.github.map(row), source: .github, says: pullRequestChange)
             news += approvals(from: old.github, to: new.github)
         }
         return news
@@ -121,17 +147,25 @@ final class NotchNews {
             guard let approvedBefore = before[row.key],
                   let newcomers = row.approvedBy?.filter({ !approvedBefore.contains($0) }), !newcomers.isEmpty
             else { return nil }
-            return Item(key: row.key, light: .done, name: row.title, change: "approved by \(newcomers.joined(separator: ", "))")
+            return Item(
+                key: row.key, source: .github, light: .done, name: row.title,
+                change: "approved by \(newcomers.joined(separator: ", "))", link: row.link
+            )
         }
     }
 
     /// Only rows that were there before: a row that just appeared, such as every chat
     /// after the hub starts, has no change to tell.
-    private static func changes(from old: [Row], to new: [Row], says change: (Light) -> String?) -> [Item] {
+    private static func changes(
+        from old: [Row],
+        to new: [Row],
+        source: NewsSource,
+        says change: (Light) -> String?
+    ) -> [Item] {
         let before = Dictionary(old.map { ($0.key, $0.light) }, uniquingKeysWith: { first, _ in first })
         return new.compactMap { row in
             guard let light = before[row.key], light != row.light, let change = change(row.light) else { return nil }
-            return Item(key: row.key, light: row.light, name: row.name, change: change)
+            return Item(key: row.key, source: source, light: row.light, name: row.name, change: change, link: row.link)
         }
     }
 
@@ -152,5 +186,11 @@ final class NotchNews {
         case .waiting: "changes requested"
         case .running, .idle, .review: nil
         }
+    }
+}
+
+private extension GithubItem {
+    var link: NewsHistory.Link? {
+        url.flatMap(URL.init(string:)).map(NewsHistory.Link.url)
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-enum Light: String, Decodable {
+enum Light: String, Codable {
     case running, waiting, done, failed, idle, review
 
     /// A value from a newer hub must not break the whole stream.
