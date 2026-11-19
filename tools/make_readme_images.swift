@@ -23,12 +23,14 @@ enum MakeReadmeImages {
 
     /// The open board, looping over its idle animation.
     static func writeHero(to folder: URL) {
+        // The registration domain lives in memory, so the made-up news never reach this Mac's defaults.
+        UserDefaults.standard.register(defaults: ["keptNews": try! JSONEncoder().encode(Sample.keptNews)])
         let scene = Scene()
         scene.meetings = Sample.meetings
         let deck = Sample.deck(cards: Sample.cards, status: Status(mood: "idle", text: "caching forecasts"))
         // 75 frames last about as long as three breaths of the orange light, so the loop has no visible seam.
         let frames = (0..<75).map { frame in
-            OpenNotch.draw(scene: scene, deck: deck, now: Timeline.frame(frame), sky: CGSize(width: 1600, height: 1080))
+            OpenNotch.draw(scene: scene, deck: deck, now: Timeline.frame(frame), skyWidth: 1600)
         }
         writeGIF(frames, to: folder.appendingPathComponent("hero.gif"))
     }
@@ -39,7 +41,7 @@ enum MakeReadmeImages {
             scene.meetings = Sample.meetings
             scene.show(screen)
             let deck = Sample.deck(cards: Sample.cards, integrations: Sample.integrations)
-            writePNG(OpenNotch.draw(scene: scene, deck: deck, now: Timeline.brightLights, sky: nil),
+            writePNG(OpenNotch.draw(scene: scene, deck: deck, now: Timeline.brightLights, skyWidth: nil),
                      to: folder.appendingPathComponent("\(name).png"))
         }
     }
@@ -167,9 +169,16 @@ enum Sample {
         Card(id: "deploy", title: "Deploy weather-app to staging?", text: "Build 2.4.0 (318) passed all checks.",
              sprite: .named("waiting"),
              actions: [CardAction(label: "Deploy", state: .idle), CardAction(label: "Not now", state: .idle)]),
-        Card(id: "nightly", title: "Nightly build is on TestFlight", text: "2.4.0 (318), took 14m 02s",
+        Card(id: "nightly", source: "testflight", title: "Nightly build is on TestFlight", text: "2.4.0 (318), took 14m 02s",
              sprite: .named("done"),
-             actions: [CardAction(label: "Open", url: URL(string: "https://example.com"), state: .idle)]),
+             actions: [CardAction(label: "Open", url: URL(string: "https://example.com"), state: .idle)],
+             createdAt: Timeline.at(-11 * 60).formatted(.iso8601.year().month().day().time(includingFractionalSeconds: true))),
+    ]
+
+    static let keptNews = [
+        NewsHistory.Entry(id: "approved", source: .github, light: .done,
+                          text: "#209 Dark mode for the settings screen approved by nadia-dev",
+                          link: .url(URL(string: "https://example.com")!), date: Timeline.at(-26 * 60)),
     ]
 
     static let integrations = [
@@ -214,9 +223,12 @@ extension NotchGeometry {
     }
 }
 
-/// The open notch laid out as `NotchView` lays it out, alone or hanging over a sky.
+/// The open notch laid out as `NotchView` lays it out, alone or hanging over a sky `skyWidth` wide.
 enum OpenNotch {
-    static func draw(scene: Scene, deck: Deck, now: Date, sky: CGSize?) -> CGImage {
+    /// How much sky shows under the board.
+    static let skyBelow: CGFloat = 130
+
+    static func draw(scene: Scene, deck: Deck, now: Date, skyWidth: CGFloat?) -> CGImage {
         let size = CGSize(width: NotchLayout.boardWidth, height: notchGeometry.maxOpenHeight)
         guard let frame = scene.render(
             deck: deck, connection: .online, lastArrival: nil, now: now, size: size,
@@ -224,6 +236,7 @@ enum OpenNotch {
         ) else { fatalError("the scene drew nothing") }
         let height = max(min(size.height, scene.contentHeight ?? size.height), notchGeometry.height)
         let shape = CGSize(width: NotchLayout.openWidth * scale, height: height * scale)
+        let sky = skyWidth.map { CGSize(width: $0, height: shape.height + skyBelow) }
         let canvas = ImageCanvas(size: sky ?? shape)
         if sky != nil { canvas.drawSky(down: 1) }
         let shapeX = (canvas.size.width - shape.width) / 2

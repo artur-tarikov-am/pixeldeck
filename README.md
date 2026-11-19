@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.gif" width="800" alt="The open notch: tiles for Orca chats, GitHub pull requests and mentions, the next meeting, and two cards sent by scripts">
+  <img src="docs/images/hero.gif" width="800" alt="The open notch: tiles for Orca chats, GitHub pull requests and mentions, the next meeting, a card from a script, and under it the notifications: a nightly build sent by a script and a kept approval from GitHub">
 </p>
 
 Rest the pointer on the notch and it opens into the board. Click a tile for its list, click a row to jump to the chat, pull request or call.
